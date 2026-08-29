@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ladder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#fbfaf7; --ink:#14130f; --soft:#5d5a52; --faint:#96938a;
+  --line:#e7e4dc; --card:#ffffff;
+  --gold:#a67c1a; --gold-soft:#f6efdf;
+  --green:#2f6d4a; --red:#a33a2b;
+  --r:14px;
+  color-scheme:light;
+}
+:root[data-theme="dark"]{
+  --paper:#100f0d; --ink:#f2efe8; --soft:#a8a49a; --faint:#75726a;
+  --line:#292722; --card:#16150f;
+  --gold:#d6a63a; --gold-soft:#241d0c;
+  --green:#5fae83; --red:#e0796a;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);
+  font:15px/1.65 Inter,system-ui,-apple-system,sans-serif;
+  -webkit-font-smoothing:antialiased}
+h1,h2,h3,.disp{font-family:Fraunces,Georgia,serif;font-weight:400;letter-spacing:-.01em}
+a{color:inherit}
+header{position:sticky;top:0;z-index:20;background:color-mix(in srgb,var(--paper) 88%,transparent);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.hin{max-width:1120px;margin:0 auto;padding:14px 22px;display:flex;align-items:center;gap:14px}
+.brand{font-family:Fraunces,serif;font-size:20px;letter-spacing:.02em}
+.brand b{font-weight:600}
+.hsub{color:var(--faint);font-size:12.5px}
+.spacer{flex:1}
+.hbtn{border:1px solid var(--line);background:var(--card);color:var(--soft);
+  border-radius:999px;padding:6px 13px;font:inherit;font-size:12.5px;cursor:pointer}
+.hbtn:hover{border-color:var(--gold);color:var(--gold)}
+nav.tabs{max-width:1120px;margin:0 auto;padding:0 22px;display:flex;gap:2px;overflow-x:auto}
+nav.tabs button{border:0;background:none;color:var(--soft);font:inherit;font-size:13.5px;
+  padding:11px 14px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav.tabs button.on{color:var(--ink);border-bottom-color:var(--gold)}
+main{max-width:1120px;margin:0 auto;padding:26px 22px 90px}
+.view{display:none} .view.on{display:block}
+.lede{font-family:Fraunces,serif;font-size:clamp(23px,3.2vw,31px);line-height:1.28;
+  max-width:24ch;margin:0 0 6px}
+.sub{color:var(--soft);font-size:13.5px;margin:0 0 22px;max-width:62ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:18px 20px}
+.grid{display:grid;gap:14px}
+.g2{grid-template-columns:repeat(auto-fit,minmax(300px,1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
+.lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+  font-weight:600;margin-bottom:7px}
+input,textarea,select{width:100%;background:var(--paper);color:var(--ink);
+  border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:14px}
+textarea{resize:vertical;line-height:1.6}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--gold)}
+button.act{background:var(--ink);color:var(--paper);border:0;border-radius:9px;
+  padding:9px 16px;font:inherit;font-weight:500;cursor:pointer}
+button.act:hover{background:var(--gold)}
+button.mini{background:none;border:1px solid var(--line);color:var(--soft);
+  border-radius:8px;padding:5px 10px;font:inherit;font-size:12.5px;cursor:pointer}
+button.mini:hover{border-color:var(--gold);color:var(--gold)}
+button.x{background:none;border:0;color:var(--faint);cursor:pointer;font-size:15px;padding:0 4px}
+button.x:hover{color:var(--red)}
+
+/* ---- the ladder ---- */
+.rung{display:grid;grid-template-columns:56px 1fr;gap:16px;padding:16px 0;
+  border-bottom:1px solid var(--line)}
+.rung:last-child{border-bottom:0}
+.rung .yr{font-family:Fraunces,serif;font-size:19px;color:var(--gold)}
+.rung .yr small{display:block;font-family:Inter,sans-serif;font-size:10.5px;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.rung h3{margin:0 0 3px;font-size:17px}
+.rung .gap{color:var(--soft);font-size:13.5px;margin:2px 0 8px}
+.rung .nxt{font-size:13.5px;background:var(--gold-soft);border-radius:8px;
+  padding:7px 11px;display:inline-block}
+.rung.done h3{text-decoration:line-through;color:var(--faint)}
+
+/* ---- gaps ---- */
+.gaprow{padding:13px 0;border-bottom:1px solid var(--line)}
+.gaprow:last-child{border-bottom:0}
+.gaphead{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap}
+.gaphead b{font-size:15px}
+.gapnum{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--soft);font-size:13px}
+.bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:9px}
+.bar i{display:block;height:100%;background:var(--gold)}
+.gapnote{color:var(--faint);font-size:12.5px;margin-top:6px}
+
+/* ---- practice ---- */
+.streak{display:flex;gap:4px;flex-wrap:wrap;margin-top:10px}
+.streak span{width:13px;height:13px;border-radius:3px;background:var(--line)}
+.streak span.hit{background:var(--gold)}
+.affirm{font-family:Fraunces,serif;font-size:clamp(19px,2.6vw,25px);line-height:1.45;
+  margin:0;max-width:34ch}
+.tick{display:flex;align-items:center;gap:9px;padding:8px 0;border-bottom:1px solid var(--line)}
+.tick:last-child{border-bottom:0}
+.tick input{width:auto}
+
+/* ---- meditation ---- */
+.timer{font-family:Fraunces,serif;font-size:64px;line-height:1;letter-spacing:-.02em;
+  font-variant-numeric:tabular-nums}
+.chakra{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.ch{border:1px solid var(--line);border-radius:999px;padding:5px 12px;font-size:12.5px;
+  cursor:pointer;color:var(--soft)}
+.ch.on{border-color:currentColor;font-weight:600}
+
+/* ---- calendar ---- */
+.evrow{display:flex;gap:12px;align-items:baseline;padding:10px 0;border-bottom:1px solid var(--line)}
+.evrow:last-child{border-bottom:0}
+.evd{font-variant-numeric:tabular-nums;color:var(--gold);font-size:13px;min-width:92px}
+.evk{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint)}
+.soon{color:var(--red);font-weight:600}
+
+/* ---- counsel ---- */
+.lens{border-left:3px solid var(--gold);padding:2px 0 2px 15px;margin-bottom:18px}
+.lens h4{margin:0 0 4px;font-family:Fraunces,serif;font-size:16px;font-weight:400}
+.lens .src{color:var(--faint);font-size:11.5px;margin-bottom:6px}
+.lens p{margin:0;color:var(--soft);font-size:14px}
+
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.saved{color:var(--faint);font-size:12px}
+@media(max-width:640px){ .rung{grid-template-columns:44px 1fr;gap:11px} }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hin">
+    <div>
+      <div class="brand">The <b>Ladder</b></div>
+      <div class="hsub" id="hsub">loading…</div>
+    </div>
+    <div class="spacer"></div>
+    <span class="saved" id="saved"></span>
+    <button class="hbtn" id="toneBtn" title="A steady 369 Hz tone, kept low">369 Hz</button>
+    <button class="hbtn" id="themeBtn">Dark</button>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-v="today" class="on">Today</button>
+    <button data-v="ladder">The Ladder</button>
+    <button data-v="gaps">Golden gaps</button>
+    <button data-v="practice">Practice</button>
+    <button data-v="sit">Sit</button>
+    <button data-v="calendar">Calendar</button>
+    <button data-v="counsel">Counsel</button>
+  </nav>
+</header>
+
+<main>
+  <div class="view on" id="v-today"></div>
+  <div class="view" id="v-ladder"></div>
+  <div class="view" id="v-gaps"></div>
+  <div class="view" id="v-practice"></div>
+  <div class="view" id="v-sit"></div>
+  <div class="view" id="v-calendar"></div>
+  <div class="view" id="v-counsel"></div>
+</main>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const today=()=>new Date().toISOString().slice(0,10);
+
+/* ---------------- state ----------------
+   One document, held on the server behind the sign-in. Everything on this
+   page is editable; nothing here is hard-coded content pretending to be
+   yours. */
+let S = null, dirty = false;
+
+const SEED = {
+  who:{name:"", role:"", since:""},
+  horizon:"2031-03-31",
+  vision:"",
+  rungs:[], gaps:[], affirmations:[], practices:[], events:[],
+  log:{},          // "YYYY-MM-DD": {intention, review, done:[practice ids]}
+};
+
+async function load(){
+  try{
+    const d = await fetch("/api/state").then(r=>r.ok?r.json():{});
+    S = Object.assign(structuredClone(SEED), d||{});
+  }catch(e){ S = structuredClone(SEED); }
+  if(!S.rungs.length) firstRun();
+  paint();
+}
+let saveTimer=null;
+function save(){
+  dirty=true; $("#saved").textContent="…";
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(async()=>{
+    try{
+      await fetch("/api/state",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify(S)});
+      dirty=false;
+      $("#saved").textContent="saved";
+      setTimeout(()=>{ if(!dirty) $("#saved").textContent=""; }, 1800);
+    }catch(e){ $("#saved").textContent="not saved"; }
+  }, 700);
+}
+
+/* A starting shape, not a prescription: every line is editable and several
+   are deliberately blank, because a ladder someone else wrote is not yours. */
+function firstRun(){
+  const y=new Date().getFullYear();
+  S.who={name:"Aditya Sriram Mattaparthi", role:"Software Principal Engineer, Dell Technologies", since:String(y)};
+  S.vision="";
+  S.rungs=[
+    {y:String(y),   t:"Where I stand", gap:"", nxt:"", done:false},
+    {y:String(y+1), t:"", gap:"", nxt:"", done:false},
+    {y:String(y+2), t:"", gap:"", nxt:"", done:false},
+    {y:String(y+3), t:"", gap:"", nxt:"", done:false},
+    {y:String(y+5), t:"The horizon", gap:"", nxt:"", done:false},
+  ];
+  S.gaps=[
+    {n:"", have:0, want:0, unit:"", note:""},
+  ];
+  S.affirmations=[];
+  S.practices=[
+    {id:"p1", t:"Sit — 20 minutes"},
+    {id:"p2", t:"Read one page and act on one line"},
+    {id:"p3", t:"One conversation that moves a rung"},
+  ];
+  S.events=[];
+  save();
+}
+
+/* ---------------- tabs ---------------- */
+$("#tabs").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  $$("#tabs button").forEach(x=>x.classList.toggle("on",x===b));
+  $$(".view").forEach(v=>v.classList.remove("on"));
+  $("#v-"+b.dataset.v).classList.add("on");
+  window.scrollTo({top:0});
+});
+
+/* ---------------- theme + tone ---------------- */
+$("#themeBtn").onclick=()=>{
+  const dark=document.documentElement.dataset.theme==="dark";
+  document.documentElement.dataset.theme=dark?"light":"dark";
+  $("#themeBtn").textContent=dark?"Dark":"Light";
+  localStorage.setItem("ladder.theme",document.documentElement.dataset.theme);
+};
+if(localStorage.getItem("ladder.theme")==="dark"){
+  document.documentElement.dataset.theme="dark"; }
+
+let TONE=null, TONE_ON=false;
+function toneToggle(on){
+  try{
+    if(on){
+      if(!TONE){
+        const ctx=new (window.AudioContext||window.webkitAudioContext)();
+        const o=ctx.createOscillator(), g=ctx.createGain();
+        o.type="sine"; o.frequency.value=369; g.gain.value=0;
+        o.connect(g).connect(ctx.destination); o.start();
+        g.gain.linearRampToValueAtTime(0.012, ctx.currentTime+2.5);
+        TONE={ctx,o,g};
+      } else { TONE.ctx.resume();
+        TONE.g.gain.linearRampToValueAtTime(0.012, TONE.ctx.currentTime+1.5); }
+      TONE_ON=true;
+    } else if(TONE){
+      TONE.g.gain.linearRampToValueAtTime(0, TONE.ctx.currentTime+0.6); TONE_ON=false;
+    }
+    localStorage.setItem("ladder.tone", TONE_ON?"1":"0");
+  }catch(e){}
+  $("#toneBtn").textContent = TONE_ON ? "369 Hz ⏸" : "369 Hz";
+}
+$("#toneBtn").onclick=()=>toneToggle(!TONE_ON);
+
+/* ---------------- painting ---------------- */
+function paint(){ hdr(); today_(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); }
+
+function hdr(){
+  const d=new Date(S.horizon||"");
+  const days=isNaN(d)?null:Math.ceil((d-new Date())/864e5);
+  $("#hsub").textContent = (S.who.role||"") + (days!=null?` · ${days.toLocaleString()} days to the horizon`:"");
+}
+
+/* ---- Today ---- */
+function today_(){
+  const k=today(), e=S.log[k]||{};
+  const aff = S.affirmations.length
+    ? S.affirmations[new Date().getDate() % S.affirmations.length] : "";
+  const open = S.rungs.find(r=>!r.done && r.nxt);
+  $("#v-today").innerHTML=`
+  <p class="lede">${esc(new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}</p>
+  <p class="sub">One page. What you intend before the day starts, and what actually happened when it ended.</p>
+  <div class="grid g2">
+    <div class="card">
+      <div class="lbl">Intention</div>
+      <textarea id="tIntent" rows="3" placeholder="The one thing that would make today count.">${esc(e.intention||"")}</textarea>
+      <div class="lbl" style="margin-top:16px">Tonight</div>
+      <textarea id="tReview" rows="3" placeholder="What actually moved. What did not, and why.">${esc(e.review||"")}</textarea>
+    </div>
+    <div class="card">
+      ${aff?`<div class="lbl">Today's line</div><p class="affirm">${esc(aff)}</p>`
+           :`<div class="lbl">Today's line</div><p class="sub" style="margin:0">Add your affirmations under Practice and one will appear here each day.</p>`}
+      ${open?`<div class="lbl" style="margin-top:20px">Next on the ladder</div>
+        <p style="margin:0"><b>${esc(open.t||open.y)}</b><br><span class="sub" style="margin:0">${esc(open.nxt)}</span></p>`:""}
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    <div class="lbl">Practice</div>
+    ${S.practices.map(p=>`<label class="tick">
+      <input type="checkbox" data-p="${esc(p.id)}" ${(e.done||[]).includes(p.id)?"checked":""}>
+      <span>${esc(p.t)}</span></label>`).join("") || `<p class="sub" style="margin:0">No practices yet — add them under Practice.</p>`}
+    <div class="streak" id="streak"></div>
+    <div class="gapnote">Last thirty days. A gap is information, not a verdict.</div>
+  </div>`;
+
+  $("#tIntent").oninput=e2=>{ log().intention=e2.target.value; save(); };
+  $("#tReview").oninput=e2=>{ log().review=e2.target.value; save(); };
+  $$("#v-today input[data-p]").forEach(cb=>cb.onchange=()=>{
+    const l=log(); l.done=l.done||[];
+    const id=cb.dataset.p;
+    if(cb.checked){ if(!l.done.includes(id)) l.done.push(id); }
+    else l.done=l.done.filter(x=>x!==id);
+    save(); streak();
+  });
+  streak();
+}
+function log(){ const k=today(); S.log[k]=S.log[k]||{}; return S.log[k]; }
+function streak(){
+  const el=$("#streak"); if(!el) return;
+  let h="";
+  for(let i=29;i>=0;i--){
+    const d=new Date(); d.setDate(d.getDate()-i);
+    const k=d.toISOString().slice(0,10);
+    const done=((S.log[k]||{}).done||[]).length;
+    h+=`<span class="${done?"hit":""}" title="${k}"></span>`;
+  }
+  el.innerHTML=h;
+}
+
+/* ---- The Ladder ---- */
+function ladder(){
+  $("#v-ladder").innerHTML=`
+  <p class="lede">The climb, one rung at a time</p>
+  <p class="sub">A rung is not a wish. It is a named position, the honest gap between here and it,
+    and the next thing that closes some of that gap. Edit anything.</p>
+  <div class="card">
+    <div class="lbl">The horizon</div>
+    <div class="row">
+      <input id="lHorizon" type="date" value="${esc(S.horizon||"")}" style="max-width:190px">
+      <input id="lVision" placeholder="What is true when you arrive" value="${esc(S.vision||"")}">
+    </div>
+  </div>
+  <div class="card" style="margin-top:14px">
+    ${S.rungs.map((r,i)=>`<div class="rung ${r.done?"done":""}">
+      <div class="yr">${esc(r.y||"")}<small>${r.done?"done":"open"}</small></div>
+      <div>
+        <div class="row" style="gap:6px">
+          <input data-i="${i}" data-f="t" value="${esc(r.t)}" placeholder="The position you hold at this rung"
+            style="font-weight:600;border-color:transparent;background:none;padding-left:0">
+          <button class="x" data-del="${i}" title="Remove">×</button>
+        </div>
+        <input data-i="${i}" data-f="gap" value="${esc(r.gap)}" placeholder="The golden gap — what is missing between here and there"
+          style="border-color:transparent;background:none;padding-left:0;color:var(--soft);font-size:13.5px">
+        <input data-i="${i}" data-f="nxt" value="${esc(r.nxt)}" placeholder="The next action that closes some of it"
+          style="border-color:transparent;background:none;padding-left:0;font-size:13.5px">
+        <div class="row" style="margin-top:6px">
+          <label class="tick" style="border:0;padding:0"><input type="checkbox" data-done="${i}" ${r.done?"checked":""}>
+            <span class="gapnote">reached</span></label>
+        </div>
+      </div>
+    </div>`).join("")}
+    <div class="row" style="margin-top:14px">
+      <button class="mini" id="lAdd">+ Add a rung</button>
+    </div>
+  </div>`;
+
+  $("#lHorizon").onchange=e=>{ S.horizon=e.target.value; save(); hdr(); };
+  $("#lVision").oninput=e=>{ S.vision=e.target.value; save(); };
+  $$("#v-ladder input[data-f]").forEach(i=>i.oninput=()=>{
+    S.rungs[+i.dataset.i][i.dataset.f]=i.value; save(); });
+  $$("#v-ladder input[data-done]").forEach(c=>c.onchange=()=>{
+    S.rungs[+c.dataset.done].done=c.checked; save(); ladder(); today_(); });
+  $$("#v-ladder [data-del]").forEach(b=>b.onclick=()=>{
+    S.rungs.splice(+b.dataset.del,1); save(); ladder(); });
+  $("#lAdd").onclick=()=>{
+    const y=new Date().getFullYear()+S.rungs.length;
+    S.rungs.push({y:String(y),t:"",gap:"",nxt:"",done:false}); save(); ladder(); };
+}
+
+/* ---- Golden gaps ---- */
+function gaps(){
+  $("#v-gaps").innerHTML=`
+  <p class="lede">The distance, stated honestly</p>
+  <p class="sub">A gap you can measure is a gap you can close. Put the real number in
+    <em>have</em> — the value of this page is that it does not flatter you.</p>
+  <div class="card">
+    ${S.gaps.map((g,i)=>{
+      const pc = (+g.want>0) ? Math.max(0,Math.min(100, (+g.have/ +g.want)*100)) : 0;
+      const mult = (+g.have>0 && +g.want>0) ? (+g.want / +g.have) : null;
+      return `<div class="gaprow">
+        <div class="gaphead">
+          <input data-i="${i}" data-f="n" value="${esc(g.n)}" placeholder="What you are measuring"
+            style="border-color:transparent;background:none;padding-left:0;font-weight:600;max-width:340px">
+          <span class="gapnum">${mult?`${mult>=1000?Math.round(mult).toLocaleString():mult.toFixed(1)}× to go`:""}</span>
+          <button class="x" data-del="${i}">×</button>
+        </div>
+        <div class="row" style="gap:8px;margin-top:4px">
+          <input data-i="${i}" data-f="have" value="${esc(g.have)}" placeholder="have" style="max-width:130px">
+          <span class="gapnote">of</span>
+          <input data-i="${i}" data-f="want" value="${esc(g.want)}" placeholder="want" style="max-width:150px">
+          <input data-i="${i}" data-f="unit" value="${esc(g.unit)}" placeholder="unit" style="max-width:110px">
+        </div>
+        <div class="bar"><i style="width:${pc.toFixed(2)}%"></i></div>
+        <input data-i="${i}" data-f="note" value="${esc(g.note)}" placeholder="What would actually move this number"
+          style="border-color:transparent;background:none;padding-left:0;font-size:12.5px;color:var(--faint);margin-top:6px">
+      </div>`;}).join("")}
+    <div class="row" style="margin-top:14px"><button class="mini" id="gAdd">+ Add a gap</button></div>
+  </div>`;
+  $$("#v-gaps input[data-f]").forEach(i=>i.oninput=()=>{
+    S.gaps[+i.dataset.i][i.dataset.f]=i.value; save();
+    if(["have","want"].includes(i.dataset.f)) gaps(); });
+  $$("#v-gaps [data-del]").forEach(b=>b.onclick=()=>{ S.gaps.splice(+b.dataset.del,1); save(); gaps(); });
+  $("#gAdd").onclick=()=>{ S.gaps.push({n:"",have:0,want:0,unit:"",note:""}); save(); gaps(); };
+}
+
+/* ---- Practice ---- */
+function practice(){
+  $("#v-practice").innerHTML=`
+  <p class="lede">What you repeat</p>
+  <p class="sub">Affirmations in your own words — a line someone else wrote does not hold under pressure.
+    One appears on Today each day.</p>
+  <div class="grid g2">
+    <div class="card">
+      <div class="lbl">Affirmations</div>
+      ${S.affirmations.map((a,i)=>`<div class="row" style="margin-bottom:6px">
+        <input data-a="${i}" value="${esc(a)}" style="flex:1">
+        <button class="x" data-adel="${i}">×</button></div>`).join("")}
+      <div class="row"><button class="mini" id="aAdd">+ Add a line</button></div>
+    </div>
+    <div class="card">
+      <div class="lbl">Daily practices</div>
+      ${S.practices.map((p,i)=>`<div class="row" style="margin-bottom:6px">
+        <input data-p="${i}" value="${esc(p.t)}" style="flex:1">
+        <button class="x" data-pdel="${i}">×</button></div>`).join("")}
+      <div class="row"><button class="mini" id="pAdd">+ Add a practice</button></div>
+    </div>
+  </div>`;
+  $$("#v-practice input[data-a]").forEach(i=>i.oninput=()=>{ S.affirmations[+i.dataset.a]=i.value; save(); });
+  $$("#v-practice input[data-p]").forEach(i=>i.oninput=()=>{ S.practices[+i.dataset.p].t=i.value; save(); });
+  $$("#v-practice [data-adel]").forEach(b=>b.onclick=()=>{ S.affirmations.splice(+b.dataset.adel,1); save(); practice(); today_(); });
+  $$("#v-practice [data-pdel]").forEach(b=>b.onclick=()=>{ S.practices.splice(+b.dataset.pdel,1); save(); practice(); today_(); });
+  $("#aAdd").onclick=()=>{ S.affirmations.push(""); save(); practice(); };
+  $("#pAdd").onclick=()=>{ S.practices.push({id:"p"+Date.now(),t:""}); save(); practice(); };
+}
+
+/* ---- Sit ---- */
+const CHAKRAS=[["Muladhara","#c0392b"],["Svadhisthana","#d35400"],["Manipura","#c9a227"],
+  ["Anahata","#2f6d4a"],["Vishuddha","#2a78d6"],["Ajna","#4a3aa7"],["Sahasrara","#7d3c98"]];
+let SIT={n:20*60,left:20*60,t:null,ch:3};
+function sit(){
+  const m=String(Math.floor(SIT.left/60)).padStart(2,"0"), s=String(SIT.left%60).padStart(2,"0");
+  $("#v-sit").innerHTML=`
+  <p class="lede">Sit</p>
+  <p class="sub">A timer, a point of attention, and the tone if you want it. Nothing else —
+    the instrument should not be more interesting than the practice.</p>
+  <div class="card" style="text-align:center;padding:34px 20px">
+    <div class="timer" style="color:${CHAKRAS[SIT.ch][1]}">${m}:${s}</div>
+    <div class="row" style="justify-content:center;margin-top:18px">
+      ${[10,20,30,45].map(n=>`<button class="mini" data-min="${n}">${n} min</button>`).join("")}
+      <button class="act" id="sitGo">${SIT.t?"Stop":"Begin"}</button>
+    </div>
+    <div class="chakra" style="justify-content:center">
+      ${CHAKRAS.map(([n,c],i)=>`<span class="ch ${i===SIT.ch?"on":""}" data-ch="${i}"
+        style="${i===SIT.ch?`color:${c}`:""}">${n}</span>`).join("")}
+    </div>
+  </div>`;
+  $$("#v-sit [data-min]").forEach(b=>b.onclick=()=>{ SIT.n=+b.dataset.min*60; SIT.left=SIT.n; sit(); });
+  $$("#v-sit [data-ch]").forEach(b=>b.onclick=()=>{ SIT.ch=+b.dataset.ch; sit(); });
+  $("#sitGo").onclick=()=>{
+    if(SIT.t){ clearInterval(SIT.t); SIT.t=null; }
+    else { if(!TONE_ON) toneToggle(true);
+      SIT.t=setInterval(()=>{ SIT.left--; if(SIT.left<=0){ clearInterval(SIT.t); SIT.t=null;
+        SIT.left=SIT.n; const l=log(); l.sat=(l.sat||0)+SIT.n/60; save(); } sit(); },1000); }
+    sit();
+  };
+}
+
+/* ---- Calendar ---- */
+function calendar_(){
+  const rows=[...S.events].sort((a,b)=>String(a.d).localeCompare(String(b.d)));
+  const days=d=>Math.ceil((new Date(d)-new Date(today()))/864e5);
+  $("#v-calendar").innerHTML=`
+  <p class="lede">What is coming</p>
+  <p class="sub">Family, celebrations, appointments. The things that are the point of the climb,
+    and the first to be forgotten during it.</p>
+  <div class="card">
+    <div class="row" style="margin-bottom:14px">
+      <input id="eD" type="date" style="max-width:170px">
+      <select id="eK" style="max-width:150px">
+        <option>Family</option><option>Celebration</option><option>Appointment</option>
+        <option>Milestone</option><option>Travel</option>
+      </select>
+      <input id="eT" placeholder="What it is" style="flex:1;min-width:180px">
+      <button class="act" id="eAdd">Add</button>
+    </div>
+    ${rows.length? rows.map((v,i)=>{
+      const n=days(v.d);
+      return `<div class="evrow">
+        <span class="evd ${n>=0&&n<=7?"soon":""}">${esc(v.d)}</span>
+        <span class="evk">${esc(v.k||"")}</span>
+        <span style="flex:1">${esc(v.t)}</span>
+        <span class="gapnote">${isNaN(n)?"":n<0?`${-n}d ago`:n===0?"today":`in ${n}d`}</span>
+        <button class="x" data-edel="${S.events.indexOf(v)}">×</button>
+      </div>`;}).join("") : `<p class="sub" style="margin:0">Nothing yet.</p>`}
+  </div>`;
+  $("#eAdd").onclick=()=>{
+    const d=$("#eD").value, t=$("#eT").value.trim();
+    if(!d||!t) return;
+    S.events.push({d,k:$("#eK").value,t}); save(); calendar_();
+  };
+  $$("#v-calendar [data-edel]").forEach(b=>b.onclick=()=>{ S.events.splice(+b.dataset.edel,1); save(); calendar_(); });
+}
+
+/* ---- Counsel ----
+   Lenses, not impersonations. Each is named for a discipline rather than a
+   person, and written here. Putting invented words into the mouth of a real
+   person -- living or dead -- would be a different thing entirely, and not a
+   better one. */
+const LENSES=[
+ {h:"The definite aim", s:"the accumulation tradition — Hill, Proctor and that lineage",
+  p:"Vagueness is the whole problem. A wish becomes a plan at the moment it acquires a number, a date and a first action. Look at your gaps page: any row without a number in <em>want</em> is still a wish, and it will behave like one."},
+ {h:"Work without clinging to the fruit", s:"the Gita, chapters two and three",
+  p:"You are entitled to the action and not to its result. This is not resignation — it is where your leverage actually is. The effort is fully yours; the outcome never was. Most anxiety on this page will come from having those two the wrong way round."},
+ {h:"The integral view", s:"the integral-yoga tradition — Sri Aurobindo and the Mother",
+  p:"The aim is not to escape the work but to bring a higher consciousness into it. Nothing on your ladder is separate from the practice: the negotiation, the code review, the difficult conversation with family. Treat the ordinary as the field, not the interruption."},
+ {h:"Inner engineering", s:"the yogic method as taught in modern India",
+  p:"You are not the mind you are watching. Before you act on a strong feeling, put one minute between the feeling and the act. That gap is the whole of your freedom, and it is trainable."},
+ {h:"Discipline before inspiration", s:"the freedom-movement and public-service tradition",
+  p:"Organisation beats intensity. Enthusiasm is abundant and cheap; what is rare is the person who does the unglamorous thing on the day they do not feel like it. Your streak on the Today page is a truer report than any plan."},
+ {h:"Cleaning what you carry", s:"Ho'oponopono, as practised",
+  p:"Before you ask for the next thing, settle what is unpaid behind you. Whatever you resent still has your attention, and attention is the only capital you are actually short of."},
+];
+function counsel(){
+  $("#v-counsel").innerHTML=`
+  <p class="lede">Six ways to look at the same day</p>
+  <p class="sub">Lenses, not gurus. Each is named for the discipline rather than a person —
+    words invented for a real mouth would be worth less than nothing.</p>
+  <div class="card">
+    ${LENSES.map(l=>`<div class="lens"><h4>${l.h}</h4><div class="src">${l.s}</div><p>${l.p}</p></div>`).join("")}
+  </div>`;
+}
+
+/* boot */
+load();
+if(localStorage.getItem("ladder.tone")==="1"){
+  window.addEventListener("pointerdown",()=>toneToggle(true),{once:true});
+}
+</script>
+</body>
+</html>

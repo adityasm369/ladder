@@ -1,0 +1,4 @@
+# Runtime state, not source
+data/
+*.pid
+*.log
