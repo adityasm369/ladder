@@ -139,6 +139,19 @@ button.x:hover{color:var(--red)}
 button.eb{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
   background:none;color:var(--soft);cursor:pointer;font:inherit}
 button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.prow.six{grid-template-columns:auto auto 1fr}
+.rank{font-size:12px;color:var(--faint);width:15px;text-align:right;font-variant-numeric:tabular-nums}
+.prow.six input[type=checkbox]:checked ~ .rank{color:var(--gold)}
+/* The statements are read, not scanned: bigger than a field, quieter than a
+   heading, and numbered so there are two of them and not a list. */
+.goalrow{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:start;margin-bottom:10px}
+.gn{font-size:20px;color:var(--faint);line-height:1.5;font-variant-numeric:tabular-nums}
+.goalrow textarea{font-size:15.5px;line-height:1.55}
+.rits{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.rit{border:1px solid var(--line);border-radius:11px;padding:12px 13px}
+.rithead{font-size:13px;font-weight:600;margin-bottom:8px}
+.rithead small{display:block;font-size:11.5px;font-weight:400;color:var(--faint);margin-top:2px}
+.ritnote{margin-top:9px;font-size:12.5px;border-color:transparent;background:none;padding-left:0}
 .gapnote{color:var(--faint);font-size:12.5px;margin-top:6px}
 
 /* ---- practice ---- */
@@ -266,7 +279,10 @@ const SEED = {
   horizon:"2031-03-31",
   vision:"",
   rungs:[], gaps:[], affirmations:[], practices:[], events:[],
-  log:{},          // "YYYY-MM-DD": {intention, review, done:[practice ids]}
+  // Two statements, held here rather than per-day: the whole point of a
+  // definite aim is that it does not change with the weather.
+  goals:["", ""],
+  log:{},          // "YYYY-MM-DD": {intention, six, grat, ritual, review, done}
 };
 
 async function load(){
@@ -418,9 +434,68 @@ function inst(v, l, sub){
     ${sub ? `<div class="is">${esc(sub)}</div>` : ""}</div>`;
 }
 
+/* ---- the day's method ----
+
+   Ivy Lee, as he actually described it in 1918: at the end of the day write
+   down the six things that matter tomorrow, in order of importance; start at
+   one and do not touch two until one is finished; carry whatever is left to
+   the top of tomorrow's list. Six, not ten, and ordered, not tagged -- the
+   constraint is the method. The three rituals are the scaffolding around it:
+   the list is READ in the morning, CHECKED at noon, and WRITTEN in the
+   evening for the day after.
+*/
+const RITUALS = [
+  {k:"am", label:"Morning", when:"before the day claims you", items:[
+    ["r1", "Read both statements aloud"],
+    ["r2", "Write the gratitude"],
+    ["r3", "Open number one — nothing else"],
+  ]},
+  {k:"noon", label:"Noon", when:"the checkpoint, not a second start", items:[
+    ["r4", "Is number one actually finished?"],
+    ["r5", "No new work above the list"],
+    ["r6", "Stand up, breathe, eat properly"],
+  ]},
+  {k:"pm", label:"Evening", when:"close it, then write tomorrow", items:[
+    ["r7", "Say what moved and what did not"],
+    ["r8", "Write tomorrow's six, in order"],
+    ["r9", "Read both statements again"],
+  ]},
+];
+
+/* Six slots, always. An older day may hold the three-priority list this page
+   used to keep; those become the first three rather than being lost. */
+function sixOf(e){
+  let six = e.six;
+  if(!six){
+    six = (e.prio || []).map(p => ({t:p.t || "", done:!!p.done}));
+  }
+  six = six.slice(0, 6);
+  while(six.length < 6) six.push({t:"", done:false});
+  return six;
+}
+
+function carryForward(){
+  const l = log(), six = sixOf(l).filter(x => x.t.trim() && !x.done);
+  const d = new Date(); d.setDate(d.getDate() + 1);
+  const k2 = d.toISOString().slice(0, 10);
+  S.log[k2] = S.log[k2] || {};
+  const tomorrow = sixOf(S.log[k2]).filter(x => x.t.trim());
+  const merged = [...six.map(x => ({t:x.t, done:false})), ...tomorrow]
+    .filter((x, i, a) => a.findIndex(y => y.t === x.t) === i).slice(0, 6);
+  while(merged.length < 6) merged.push({t:"", done:false});
+  S.log[k2].six = merged;
+  save(); today_();
+  const n = six.length;
+  $("#carryMsg").textContent = n
+    ? `${n} carried to the top of tomorrow's list`
+    : "nothing left over — the list was finished";
+}
+
 function today_(){
   const k = today(), e = S.log[k] || {};
-  e.prio = e.prio || [];
+  const six = sixOf(e);
+  e.ritual = e.ritual || {};
+  S.goals = S.goals || ["", ""];
   const aff = S.affirmations.length
     ? S.affirmations[new Date().getDate() % S.affirmations.length] : "";
   const open = S.rungs.find(r => !r.done && r.nxt);
@@ -432,6 +507,10 @@ function today_(){
   const gap = (S.gaps || []).filter(g => +g.want > 0)
     .map(g => ({n: g.n, pc: Math.min(100, (+g.have / +g.want) * 100)}))
     .sort((a, b) => b.pc - a.pc)[0];
+  const sixDone = six.filter(x => x.t.trim() && x.done).length;
+  const sixSet  = six.filter(x => x.t.trim()).length;
+  const ritDone = RITUALS.reduce((n, r) => n + ((e.ritual[r.k] || {}).done || []).length, 0);
+  const ritAll  = RITUALS.reduce((n, r) => n + r.items.length, 0);
 
   $("#v-today").innerHTML = `
   <p class="lede">${esc(new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}</p>
@@ -441,11 +520,10 @@ function today_(){
   <div class="insts">
     ${inst(days != null ? days.toLocaleString() : "—", "days to the horizon",
            S.horizon ? new Date(S.horizon).getFullYear() : "")}
+    ${inst(`${sixDone}<small>/${sixSet||6}</small>`, "the six", sixSet ? "in order" : "not written yet")}
+    ${inst(`${ritDone}<small>/${ritAll}</small>`, "rituals kept", ritDone === ritAll ? "all three" : "")}
     ${inst(streakLen(), "day practice streak", "unbroken")}
-    ${inst(`${doneToday}<small>/${allP}</small>`, "practice today",
-           doneToday === allP && allP ? "complete" : "open")}
     ${inst(cp.pc + "<small>%</small>", "CTO ground held", `${cp.held} of ${cp.total}`)}
-    ${inst(ctoOpen().length, "domains still open", nx ? CTO[nx.d].label : "")}
     ${inst(wins, "wins on the wall", wins ? "keep adding" : "start one")}
   </div>
 
@@ -454,15 +532,18 @@ function today_(){
       <div class="lbl">Steering — decided before the day starts</div>
       <textarea id="tIntent" rows="2" placeholder="The one thing that would make today count.">${esc(e.intention||"")}</textarea>
 
-      <div class="lbl" style="margin-top:16px">The three that matter</div>
-      ${[0,1,2].map(i => {
-        const p = e.prio[i] || {t:"", done:false};
-        return `<label class="prow">
-          <input type="checkbox" data-pi="${i}" ${p.done?"checked":""}>
-          <input class="pin" data-pt="${i}" value="${esc(p.t)}"
-            placeholder="${i===0?"The one that cannot slip":i===1?"The second":"The third"}">
-        </label>`;
-      }).join("")}
+      <div class="lbl" style="margin-top:16px">The six, in order
+        <span class="gapnote" style="margin:0">— Ivy Lee: number two waits until number one is done</span></div>
+      ${six.map((p, i) => `<label class="prow six">
+        <span class="rank">${i+1}</span>
+        <input type="checkbox" data-pi="${i}" ${p.done?"checked":""}>
+        <input class="pin" data-pt="${i}" value="${esc(p.t)}"
+          placeholder="${i===0?"The one that cannot slip":i===1?"Only after one is finished":"…"}">
+      </label>`).join("")}
+      <div class="row" style="margin-top:10px">
+        <button class="mini" onclick="carryForward()">Carry the unfinished to tomorrow</button>
+        <span class="gapnote" id="carryMsg" style="margin:0"></span>
+      </div>
 
       <div class="lbl" style="margin-top:16px">Saying no to
         <span class="gapnote" style="margin:0">— an unconsidered yes is a no to the ladder</span></div>
@@ -494,6 +575,40 @@ function today_(){
   </div>
 
   <div class="card" style="margin-top:14px">
+    <div class="lbl">The two statements
+      <span class="gapnote" style="margin:0">— present tense, dated, and specific enough to be wrong</span></div>
+    <p class="sub" style="margin:-2px 0 12px">Written once and read aloud twice a day, morning and night.
+      Not a wish: a position, a date, and what it costs. These do not change with the weather —
+      edit them when the aim changes, not when the day is hard.</p>
+    ${[0,1].map(i => `<div class="goalrow">
+      <span class="gn">${i+1}</span>
+      <textarea data-goal="${i}" rows="2" placeholder="${i===0
+        ? "By March 2031 I am … , and to earn it I …"
+        : "The second aim, in the same shape"}">${esc((S.goals||[])[i]||"")}</textarea>
+    </div>`).join("")}
+  </div>
+
+  <div class="card" style="margin-top:14px">
+    <div class="lbl">The three rituals</div>
+    <p class="sub" style="margin:-2px 0 14px">The scaffolding around the six: the list is read in the
+      morning, checked at noon, and written in the evening for the day after.</p>
+    <div class="rits">
+      ${RITUALS.map(r => {
+        const st = e.ritual[r.k] || {};
+        const dn = st.done || [];
+        return `<div class="rit">
+          <div class="rithead">${esc(r.label)}<small>${esc(r.when)}</small></div>
+          ${r.items.map(([id, t]) => `<label class="tick">
+            <input type="checkbox" data-rit="${esc(r.k)}" data-rid="${esc(id)}" ${dn.includes(id)?"checked":""}>
+            <span>${esc(t)}</span></label>`).join("")}
+          <input class="ritnote" data-ritn="${esc(r.k)}" value="${esc(st.note||"")}"
+            placeholder="A line, if there is one">
+        </div>`;
+      }).join("")}
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:14px">
     <div class="lbl">Practice</div>
     ${(S.practices||[]).map(p => `<label class="tick">
       <input type="checkbox" data-p="${esc(p.id)}" ${(e.done||[]).includes(p.id)?"checked":""}>
@@ -503,25 +618,31 @@ function today_(){
     <div class="gapnote">Last thirty days. A gap is information, not a verdict.</div>
   </div>
 
-  <div class="grid g2" style="margin-top:14px">
+  <div class="grid g3 top" style="margin-top:14px">
+    <div class="card">
+      <div class="lbl">Gratitude</div>
+      <p class="sub" style="margin:-2px 0 10px">Three, and specific. "My family" is a category;
+        the ten minutes someone gave you this morning is a thing that happened.</p>
+      <textarea id="tGrat" rows="5" placeholder="Today I am grateful for…">${esc(e.grat||"")}</textarea>
+    </div>
     <div class="card">
       <div class="lbl">Tonight</div>
-      <textarea id="tReview" rows="3" placeholder="What actually moved. What did not, and why.">${esc(e.review||"")}</textarea>
-      <div class="lbl" style="margin-top:16px">Energy</div>
+      <textarea id="tReview" rows="4" placeholder="What actually moved. What did not, and why.">${esc(e.review||"")}</textarea>
+      <div class="lbl" style="margin-top:14px">Energy</div>
       <div class="energy">${[1,2,3,4,5].map(n =>
-        `<button class="eb${+e.energy===n?" on":""}" data-en="${n}">${n}</button>`).join("")}
-        <span class="gapnote" style="margin:0">1 spent · 5 charged. Worth knowing which days give it back.</span></div>
+        `<button class="eb${+e.energy===n?" on":""}" data-en="${n}">${n}</button>`).join("")}</div>
+      <div class="gapnote">1 spent · 5 charged. Worth knowing which days give it back.</div>
     </div>
     <div class="card">
       <div class="lbl">A win, while you remember it</div>
-      <p class="sub" style="margin:-2px 0 10px">Goes straight to the wall. The map there is the only
-        honest argument that you do hard things.</p>
+      <p class="sub" style="margin:-2px 0 10px">Goes straight to the wall — the only honest argument
+        that you do hard things.</p>
       <div class="row">
-        <input id="tWinT" placeholder="In two or three words" style="flex:1;min-width:150px">
-        <input id="tWinW" type="number" min="1" max="10" value="5" title="How much it mattered" style="max-width:88px">
+        <input id="tWinT" placeholder="In two or three words" style="flex:1;min-width:120px">
+        <input id="tWinW" type="number" min="1" max="10" value="5" title="How much it mattered" style="max-width:80px">
         <button class="act" id="tWinAdd">Add</button>
       </div>
-      ${wins ? `<div class="row" style="margin-top:12px">${(S.wins||[]).slice(-6).reverse()
+      ${wins ? `<div class="row" style="margin-top:12px">${(S.wins||[]).slice(-4).reverse()
         .map(w => `<span class="chipx" style="padding-right:11px">${esc(w.t)}</span>`).join("")}</div>` : ""}
     </div>
   </div>`;
@@ -529,13 +650,29 @@ function today_(){
   $("#tIntent").oninput = ev2 => { log().intention = ev2.target.value; save(); };
   $("#tReview").oninput = ev2 => { log().review = ev2.target.value; save(); };
   $("#tNo").oninput     = ev2 => { log().no = ev2.target.value; save(); };
+  $("#tGrat").oninput   = ev2 => { log().grat = ev2.target.value; save(); };
 
-  const prio = i => { const l = log(); l.prio = l.prio || [];
-                      l.prio[i] = l.prio[i] || {t:"", done:false}; return l.prio[i]; };
-  $$("#v-today [data-pt]").forEach(inp => inp.oninput = () => {
-    prio(+inp.dataset.pt).t = inp.value; save(); });
-  $$("#v-today [data-pi]").forEach(cb => cb.onchange = () => {
-    prio(+cb.dataset.pi).done = cb.checked; save(); });
+  $$("#v-today [data-goal]").forEach(t => t.oninput = () => {
+    S.goals = S.goals || ["", ""];
+    S.goals[+t.dataset.goal] = t.value; save(); });
+
+  // The six live under their own key; writing them back through sixOf keeps a
+  // day that predates this page from losing its three.
+  const setSix = (i, f, v) => { const l = log(); l.six = sixOf(l); l.six[i][f] = v; save(); };
+  $$("#v-today [data-pt]").forEach(inp => inp.oninput = () => setSix(+inp.dataset.pt, "t", inp.value));
+  $$("#v-today [data-pi]").forEach(cb => cb.onchange = () => { setSix(+cb.dataset.pi, "done", cb.checked); today_(); });
+
+  const rit = k2 => { const l = log(); l.ritual = l.ritual || {};
+                      l.ritual[k2] = l.ritual[k2] || {done:[], note:""};
+                      l.ritual[k2].done = l.ritual[k2].done || []; return l.ritual[k2]; };
+  $$("#v-today [data-rit]").forEach(cb => cb.onchange = () => {
+    const r = rit(cb.dataset.rit), id = cb.dataset.rid;
+    if(cb.checked){ if(!r.done.includes(id)) r.done.push(id); }
+    else r.done = r.done.filter(x => x !== id);
+    save(); today_();
+  });
+  $$("#v-today [data-ritn]").forEach(inp => inp.oninput = () => {
+    rit(inp.dataset.ritn).note = inp.value; save(); });
 
   $$("#v-today [data-en]").forEach(b => b.onclick = () => {
     const l = log();
