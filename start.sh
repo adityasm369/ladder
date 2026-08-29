@@ -12,7 +12,7 @@ done
 [ -f "$d/data/ladder.pid" ] && kill "$(cat "$d/data/ladder.pid")" 2>/dev/null
 rm -f "$d/data/ladder.pid"
 mkdir -p "$d/data"
-SS_ROOT="$d" SS_INDEX="dashboard.html" SS_SLUG="ladder" SS_STORE=1 \
+SS_ROOT="$d" SS_INDEX="dashboard.html" SS_SLUG="ladder" SS_STORE=1 SS_NEWS=1 \
 SS_HTTPS=1 SS_TRUST_PROXY=1 SS_HOST="$HOST" SS_PORT="${SS_PORT:-8773}" \
   nohup python3 "$d/../_shared/serve_static.py" >> "$d/data/server.log" 2>&1 &
 echo $! > "$d/data/ladder.pid"

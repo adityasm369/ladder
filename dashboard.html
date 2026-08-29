@@ -124,6 +124,37 @@ button.x:hover{color:var(--red)}
 .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .saved{color:var(--faint);font-size:12px}
 @media(max-width:640px){ .rung{grid-template-columns:44px 1fr;gap:11px} }
+/* ---- this week ---- */
+.wk{display:flex;gap:11px;align-items:flex-start;padding:11px 0;border-bottom:1px solid var(--line)}
+.wk:last-of-type{border-bottom:0}
+.wk input{width:auto;margin-top:3px;flex:0 0 auto}
+.wk b{font-weight:600}
+.wkw{color:var(--soft);font-size:13px;line-height:1.55}
+/* ---- wall ---- */
+.cloud{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:baseline;
+  font-family:Fraunces,serif;line-height:1.35;padding:6px 0}
+.cloud span{color:var(--gold)}
+.cloud span:nth-child(3n){color:var(--ink)}
+.cloud span:nth-child(4n){color:var(--soft)}
+.chipx{border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 11px;
+  font-size:12.5px;color:var(--soft);display:inline-flex;align-items:center;gap:2px}
+.wallgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
+  gap:12px;margin-top:14px}
+.wallit{margin:0;border:1px solid var(--line);border-radius:11px;overflow:hidden;
+  background:var(--paper)}
+.wallit img{width:100%;display:block;aspect-ratio:4/3;object-fit:cover}
+.wallit figcaption{font-size:12.5px;color:var(--soft);padding:8px 10px;
+  display:flex;gap:6px;align-items:center}
+.wallit figcaption .x{margin-left:auto}
+/* ---- news ---- */
+.ncat{margin:26px 0 10px;font-family:Fraunces,serif;font-size:19px}
+.ncat:first-of-type{margin-top:6px}
+.nrow{display:flex;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
+.nrow:last-child{border-bottom:0}
+.nrow a{text-decoration:none;flex:1;line-height:1.5}
+.nrow a:hover{color:var(--gold)}
+.nsrc{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);
+  white-space:nowrap;min-width:104px}
 </style>
 </head>
 <body>
@@ -141,12 +172,15 @@ button.x:hover{color:var(--red)}
   </div>
   <nav class="tabs" id="tabs">
     <button data-v="today" class="on">Today</button>
+    <button data-v="week">This week</button>
     <button data-v="ladder">The Ladder</button>
     <button data-v="gaps">Golden gaps</button>
     <button data-v="practice">Practice</button>
     <button data-v="sit">Sit</button>
     <button data-v="calendar">Calendar</button>
     <button data-v="counsel">Counsel</button>
+    <button data-v="news">Good news</button>
+    <button data-v="wall">Wall of fame</button>
   </nav>
 </header>
 
@@ -157,7 +191,10 @@ button.x:hover{color:var(--red)}
   <div class="view" id="v-practice"></div>
   <div class="view" id="v-sit"></div>
   <div class="view" id="v-calendar"></div>
+  <div class="view" id="v-week"></div>
   <div class="view" id="v-counsel"></div>
+  <div class="view" id="v-news"></div>
+  <div class="view" id="v-wall"></div>
 </main>
 
 <script>
@@ -271,7 +308,7 @@ function toneToggle(on){
 $("#toneBtn").onclick=()=>toneToggle(!TONE_ON);
 
 /* ---------------- painting ---------------- */
-function paint(){ hdr(); today_(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); }
+function paint(){ hdr(); today_(); week(); news(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); wall(); }
 
 function hdr(){
   const d=new Date(S.horizon||"");
@@ -546,6 +583,308 @@ function counsel(){
   <div class="card">
     ${LENSES.map(l=>`<div class="lens"><h4>${l.h}</h4><div class="src">${l.s}</div><p>${l.p}</p></div>`).join("")}
   </div>`;
+}
+
+/* ============ THIS WEEK + THE WALL ============
+
+   Five queues that refill. Tick something and it is done; its replacement is
+   queued and appears the next morning, not immediately -- a list that refills
+   the instant you clear it turns into a treadmill, and the point is to finish
+   a week having actually done five things.
+
+   The pools are written here rather than fetched live: a queue that changes
+   under you is not a commitment. They are grounded in what the market is
+   short of in 2026 -- production GenAI and LLM infrastructure people are the
+   scarcest, roughly one qualified engineer per ten open roles -- and in the
+   ground already held: storage, security compliance, cloud, AI.
+*/
+
+const POOLS = {
+  skills: {
+    n: 5, title: "Skills to pick up",
+    note: "Five at a time. Each is a week's honest work, not a course to collect.",
+    items: [
+      ["Serve one open-weights model yourself", "vLLM or TGI on a single GPU. Batching, KV cache, quantisation. This is the scarcest skill in the market right now and the closest to what you already know."],
+      ["Build a retrieval index end to end", "Chunking, embedding, reranking, and an eval set that tells you when it got worse. You have already built the sparse version by hand."],
+      ["Write a Kubernetes operator", "A CRD and a controller that reconciles. The pattern behind every platform product you would sell."],
+      ["eBPF for runtime visibility", "Trace syscalls without changing the workload. The direction compliance detection is moving."],
+      ["Terraform modules that others reuse", "Not scripts — versioned, tested modules with inputs and outputs. Infrastructure as a product."],
+      ["Confidential computing", "TEEs, attestation, encrypted memory. Where private-cloud security is heading next."],
+      ["Unit economics on one page", "CAC, LTV, gross margin, payback. Learn it on a business you admire before you need it for your own."],
+      ["Pricing and packaging", "Why three tiers, where the anchor sits, what a seat is worth. The single highest-leverage founder skill that is not code."],
+      ["Write one technical essay a month", "Publishing is how a deep engineer becomes known without a marketing budget."],
+      ["Read a cap table properly", "Pre and post money, option pool shuffle, liquidation preference. Learn it before you are sitting opposite someone who already knows it."],
+      ["Cold outreach that gets replies", "Twenty sent, honestly measured. A skill, not a personality trait."],
+      ["Financial modelling in a spreadsheet", "Three statements, driver-based. You cannot delegate the judgement until you have done it once."],
+      ["System design interviews from the other side", "Run them. You learn more about architecture judging it than doing it."],
+      ["One hard conversation a week", "Ask for something you think you will be refused. The skill is tolerance, not technique."],
+    ],
+  },
+  behaviour: {
+    n: 1, title: "One behaviour to put down",
+    note: "One at a time, because you cannot change two. Worth examining, not a diagnosis.",
+    items: [
+      ["Doing it yourself because it is faster", "It is faster today and it is the ceiling on everything you build. The whole difference between an IC and a founder is here."],
+      ["Waiting until it is ready", "Nothing you ship will feel ready. The version you are polishing is already behind what the market would have told you."],
+      ["Explaining before asking", "You lead with your reasoning. Try leading with a question and see how much of your explanation was needed."],
+      ["Measuring yourself against the room", "There is always a better engineer in it. That comparison has never once produced a decision."],
+      ["Saying yes to keep the peace", "Every unconsidered yes is a no to something on your ladder, paid later and with interest."],
+      ["Treating rest as a reward", "You schedule it after the work is done, so it never is. It is a precondition, not a prize."],
+      ["Keeping the difficulty to yourself", "The people closest to you find out last, and by then it is a bigger thing than it needed to be."],
+      ["Optimising what is already good", "The fourth refinement of a strength buys less than the first hour on a weakness."],
+    ],
+  },
+  language: {
+    n: 1, title: "One language to get serious about",
+    note: "One, properly, beats three at tourist level.",
+    items: [
+      ["Mandarin", "You already work with teams in China. Nothing else on this list has a ready-made reason to practise, a colleague to practise with, and a business case at the same time."],
+      ["English, at persuasion level", "Not fluency — you have that. Writing that moves money and decisions: the memo, the pitch, the one-paragraph ask."],
+      ["Spanish", "Roughly six hundred million speakers and the easiest major language for an English speaker to reach working level in."],
+      ["Japanese", "If enterprise storage and infrastructure stay your market, Japan remains one of its deepest."],
+      ["German", "The European industrial and enterprise-software market, and the one most willing to buy from a specialist."],
+    ],
+  },
+  mirror: {
+    n: 4, title: "Four to study",
+    note: "What to examine in each, not what they supposedly said. Read their own words at the source.",
+    items: [
+      ["Jensen Huang — NVIDIA", "Study the patience: a decade funding CUDA before the market existed. The question to ask of your own plan is which part you would still fund with no applause for ten years."],
+      ["Satya Nadella — Microsoft", "Study the turn: changing what a large, proud organisation believed about itself. Read Hit Refresh in his own words rather than summaries of it."],
+      ["Sridhar Vembu — Zoho", "Study building globally from India with no outside capital, and putting engineering in small towns. The clearest counter-example to the idea that scale needs Silicon Valley."],
+      ["Nithin Kamath — Zerodha", "Study bootstrapped scale and pricing as strategy. Their public writing on how they think about customers is unusually candid."],
+      ["Nikesh Arora — Palo Alto Networks", "Study platform consolidation: how a security company absorbs a fragmented market. Directly adjacent to the ground you already stand on."],
+      ["Andrej Karpathy", "Study teaching as leverage — explaining a hard thing so clearly that it becomes yours. His public lectures are the model."],
+      ["Werner Vogels — Amazon", "Study writing as an architecture tool. His posts show a mind deciding in public."],
+      ["Falguni Nayar — Nykaa", "Study the late start: founding at fifty after a full first career. The most directly relevant fact on this list to where you are standing."],
+    ],
+  },
+  spirit: {
+    n: 5, title: "Five to sit with",
+    note: "Not reading — working through. One line, held long enough to change something.",
+    items: [
+      ["The right to the action, never the fruit", "BG 2.47. Read it on a day something you wanted did not arrive. That is the only day it teaches anything."],
+      ["Equanimity is not indifference", "BG 2.48. Steadiness in success and failure treats both as events rather than verdicts."],
+      ["Lift yourself by yourself", "BG 6.5. You are your own friend and your own enemy. It is an assignment, not encouragement."],
+      ["The chain from dwelling to ruin", "BG 2.62–63. Attention settles, wanting grows, obstruction becomes anger, judgement goes. Intervene early in the chain."],
+      ["Your own work, imperfectly", "BG 3.35. Better than another's done well. The antidote to every comparison you will make this year."],
+      ["Ho'oponopono — clear what is unpaid", "Whatever you resent still holds your attention, and attention is the capital you are actually short of."],
+      ["EFT — meet the feeling in the body", "The point is not the tapping. It is the refusal to argue with a feeling before you have located it."],
+      ["The witness", "Notice who is watching the thought. That noticing, repeated, is the whole practice."],
+      ["Anahata — give without accounting", "One act this week that cannot be reciprocated and that nobody will hear about."],
+      ["Gratitude with specifics", "Not a list of blessings. One thing, named exactly, and why it was not owed to you."],
+      ["Silence for one hour", "No input at all. Most people discover they have never tried it."],
+      ["Ajna — decide once, then stop relitigating", "The cost is rarely the decision. It is the twenty reopenings of it."],
+    ],
+  },
+};
+
+function poolState(k){
+  S.pools = S.pools || {};
+  const P = POOLS[k];
+  if(!S.pools[k]){
+    S.pools[k] = {shown: P.items.slice(0, P.n).map(x=>x[0]), done: [], queued: []};
+  }
+  return S.pools[k];
+}
+
+/* Anything queued yesterday or earlier is due this morning. */
+function ripen(){
+  let changed = false;
+  for(const k of Object.keys(POOLS)){
+    const st = poolState(k);
+    const due = st.queued.filter(q => q.at <= today());
+    if(due.length){
+      st.queued = st.queued.filter(q => q.at > today());
+      due.forEach(q => { if(!st.shown.includes(q.t)) st.shown.push(q.t); });
+      changed = true;
+    }
+  }
+  if(changed) save();
+}
+
+function tickPool(k, title){
+  const P = POOLS[k], st = poolState(k);
+  st.shown = st.shown.filter(t => t !== title);
+  st.done.push({t: title, on: today()});
+  // The replacement is the first pool item neither shown, done, nor queued.
+  const taken = new Set([...st.shown, ...st.done.map(d=>d.t), ...st.queued.map(q=>q.t)]);
+  const next = P.items.map(x=>x[0]).find(t => !taken.has(t));
+  if(next){
+    const d = new Date(); d.setDate(d.getDate()+1);
+    st.queued.push({t: next, at: d.toISOString().slice(0,10)});
+  }
+  save(); week();
+}
+
+function week(){
+  ripen();
+  const blocks = Object.keys(POOLS).map(k => {
+    const P = POOLS[k], st = poolState(k);
+    const byTitle = Object.fromEntries(P.items);
+    const rows = st.shown.map(t => `
+      <label class="wk">
+        <input type="checkbox" data-k="${esc(k)}" data-t="${esc(t)}">
+        <span><b>${esc(t)}</b><br><span class="wkw">${esc(byTitle[t]||"")}</span></span>
+      </label>`).join("") ||
+      `<p class="sub" style="margin:0">Nothing waiting — the pool is empty. Add your own below.</p>`;
+    const soon = st.queued.length
+      ? `<div class="gapnote">${st.queued.length} arriving tomorrow morning</div>` : "";
+    const done = st.done.length
+      ? `<div class="gapnote">${st.done.length} done so far</div>` : "";
+    return `<div class="card" style="margin-bottom:14px">
+      <div class="lbl">${esc(P.title)}</div>
+      <p class="sub" style="margin:-2px 0 12px">${esc(P.note)}</p>
+      ${rows}${soon}${done}
+    </div>`;
+  }).join("");
+
+  $("#v-week").innerHTML = `
+    <p class="lede">This week</p>
+    <p class="sub">Tick something and its replacement arrives tomorrow morning, not this second.
+      The point is to finish a week having done five things, not to keep a list moving.</p>
+    ${blocks}`;
+
+  $$("#v-week input[data-k]").forEach(cb => cb.onchange = () => {
+    if(cb.checked) tickPool(cb.dataset.k, cb.dataset.t);
+  });
+}
+
+/* ============ THE WALL ============ */
+function wallWords(){
+  const w = S.wins || [];
+  if(!w.length) return `<p class="sub" style="margin:0">No wins recorded yet. Add one below —
+    the map builds itself as you do.</p>`;
+  const max = Math.max(...w.map(x => +x.w || 1));
+  // Shuffled by a stable hash so it reads as a map, not a ranked table.
+  return `<div class="cloud">` + w.map((x,i) => {
+    const s = 13 + ((+x.w||1)/max) * 26;
+    const o = 0.45 + ((+x.w||1)/max) * 0.55;
+    return `<span style="font-size:${s.toFixed(1)}px;opacity:${o.toFixed(2)}"
+      title="${esc(x.n||"")}">${esc(x.t)}</span>`;
+  }).join("") + `</div>`;
+}
+
+function wall(){
+  S.wins = S.wins || [];
+  S.wall = S.wall || [];
+  $("#v-wall").innerHTML = `
+    <p class="lede">Wall of fame</p>
+    <p class="sub">What you actually did. On the days the ladder looks long, this is the page to open —
+      it is the only honest argument that you can do hard things, because you already have.</p>
+
+    <div class="card">
+      <div class="lbl">The map</div>
+      ${wallWords()}
+      <div class="row" style="margin-top:16px">
+        <input id="winT" placeholder="A win, in two or three words" style="flex:1;min-width:180px">
+        <input id="winW" type="number" min="1" max="10" value="5" title="How much it mattered, 1–10" style="max-width:96px">
+        <input id="winN" placeholder="The detail, for you" style="flex:1;min-width:180px">
+        <button class="act" id="winAdd">Add</button>
+      </div>
+      ${S.wins.length?`<div class="row" style="margin-top:12px">
+        ${S.wins.map((x,i)=>`<span class="chipx">${esc(x.t)}
+          <button class="x" data-wdel="${i}">×</button></span>`).join("")}</div>`:""}
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="lbl">Evidence</div>
+      <p class="sub" style="margin:-2px 0 12px">Photographs, certificates, a message someone sent you.
+        Images are resized in your browser before they are saved.</p>
+      <div class="row">
+        <label class="mini" style="cursor:pointer">+ Add image
+          <input type="file" id="wallImg" accept="image/*" multiple hidden></label>
+        <button class="mini" id="wallNote">+ Add a note</button>
+      </div>
+      <div class="wallgrid" id="wallGrid">
+        ${S.wall.map((it,i)=>`<figure class="wallit">
+          ${it.img?`<img src="${it.img}" alt="">`:""}
+          <figcaption>${esc(it.t||"")}<button class="x" data-idel="${i}">×</button></figcaption>
+        </figure>`).join("") || `<p class="sub" style="margin:0">Nothing here yet.</p>`}
+      </div>
+    </div>`;
+
+  $("#winAdd").onclick = () => {
+    const t = $("#winT").value.trim(); if(!t) return;
+    S.wins.push({t, w: +$("#winW").value || 5, n: $("#winN").value.trim()});
+    save(); wall();
+  };
+  $$("#v-wall [data-wdel]").forEach(b => b.onclick = () => {
+    S.wins.splice(+b.dataset.wdel,1); save(); wall(); });
+  $$("#v-wall [data-idel]").forEach(b => b.onclick = () => {
+    S.wall.splice(+b.dataset.idel,1); save(); wall(); });
+  $("#wallNote").onclick = () => {
+    const t = prompt("What happened?"); if(t && t.trim()){ S.wall.unshift({t:t.trim()}); save(); wall(); }
+  };
+  $("#wallImg").onchange = e => { addImages(e.target.files); e.target.value = ""; };
+}
+
+/* Resized here, before anything is sent: a phone photograph is several
+   megabytes and the store is one document. 900px wide is more than a wall
+   tile ever needs. */
+function addImages(files){
+  [...files].slice(0, 6).forEach(f => {
+    if(!f.type.startsWith("image/")) return;
+    const r = new FileReader();
+    r.onload = () => {
+      const im = new Image();
+      im.onload = () => {
+        const max = 900, sc = Math.min(1, max/Math.max(im.width, im.height));
+        const c = document.createElement("canvas");
+        c.width = Math.round(im.width*sc); c.height = Math.round(im.height*sc);
+        c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        S.wall.unshift({img: c.toDataURL("image/jpeg", 0.72), t: f.name.replace(/\.[^.]+$/,"")});
+        save(); wall();
+      };
+      im.src = r.result;
+    };
+    r.readAsDataURL(f);
+  });
+}
+
+
+/* ============ GOOD NEWS ============
+   Public RSS, read on the server and filtered towards success, growth and
+   life. Headlines and links only -- the article belongs to whoever wrote it,
+   and this page's job is to point you at them.
+
+   The filter is keyword-based, which is crude. It errs towards holding things
+   back: a page of good news that lets one grim headline through has failed at
+   the only thing it was for. */
+let NEWS_CACHE = null;
+async function news(force){
+  const el = $("#v-news");
+  if(!el) return;
+  if(!NEWS_CACHE || force){
+    el.innerHTML = `<p class="lede">Good news</p><p class="sub">Reading the feeds…</p>`;
+    try{ NEWS_CACHE = await fetch("/api/news").then(r=>r.json()); }
+    catch(e){ NEWS_CACHE = {ok:false}; }
+  }
+  const d = NEWS_CACHE;
+  if(!d || !d.ok || !(d.items||[]).length){
+    el.innerHTML = `<p class="lede">Good news</p>
+      <p class="sub">Nothing came back from the feeds just now. It refreshes every half hour.</p>
+      <button class="mini" id="nRe">Try again</button>`;
+    const b=$("#nRe"); if(b) b.onclick=()=>news(true);
+    return;
+  }
+  const order = ["Technology","Indian companies","Health","Life","Entertainment"];
+  const by = {};
+  d.items.forEach(i => (by[i.cat] = by[i.cat] || []).push(i));
+  el.innerHTML = `
+    <p class="lede">Good news</p>
+    <p class="sub">Success, growth and life — filtered from public feeds. Headlines link to the
+      publisher; nothing is reproduced here. ${d.kept||d.items.length} of ${d.scanned||"?"} headlines got through.</p>
+    <div class="row" style="margin-bottom:8px"><button class="mini" id="nRe">Refresh</button>
+      <span class="gapnote">Cached for thirty minutes so the feeds are not hammered.</span></div>
+    ${order.filter(c=>by[c]).map(c=>`
+      <div class="ncat">${esc(c)}</div>
+      <div class="card">${by[c].slice(0,14).map(i=>`
+        <div class="nrow">
+          <span class="nsrc">${esc(i.src)}</span>
+          <a href="${esc(i.u)}" target="_blank" rel="noopener">${esc(i.t)}</a>
+        </div>`).join("")}</div>`).join("")}`;
+  $("#nRe").onclick = () => news(true);
 }
 
 /* boot */
