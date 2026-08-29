@@ -54,6 +54,7 @@ main{max-width:1120px;margin:0 auto;padding:26px 22px 90px}
 .g3{grid-template-columns:repeat(auto-fit,minmax(230px,1fr))}
 .lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
   font-weight:600;margin-bottom:7px}
+.lbl .gapnote{text-transform:none;letter-spacing:0;font-size:12px}
 input,textarea,select{width:100%;background:var(--paper);color:var(--ink);
   border:1px solid var(--line);border-radius:9px;padding:8px 11px;font:inherit;font-size:14px}
 textarea{resize:vertical;line-height:1.6}
@@ -202,6 +203,27 @@ button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .cloud span:nth-child(4n){color:var(--soft)}
 .chipx{border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 11px;
   font-size:12.5px;color:var(--soft);display:inline-flex;align-items:center;gap:2px}
+/* ---- the book ---- */
+.sparks{margin-top:12px}
+.spark{display:flex;gap:9px;align-items:center;padding:7px 0;font-size:14px;
+  border-bottom:1px solid var(--line)}
+.spark:last-child{border-bottom:0}
+.spark span{flex:1;min-width:0}
+.spark .mini{padding:2px 9px;font-size:11.5px}
+button.star{background:none;border:0;cursor:pointer;font-size:15px;color:var(--faint);padding:0 2px}
+button.star.on{color:var(--gold)}
+.pieces{max-height:420px;overflow-y:auto}
+.piece{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
+.piece:last-child{border-bottom:0}
+.piece.on{background:var(--line);margin:0 -13px;padding:6px 13px;border-radius:8px}
+.piece input[type=checkbox]{width:auto;margin:0;flex:0 0 auto}
+button.pt{flex:1;min-width:0;text-align:left;background:none;border:0;cursor:pointer;
+  color:var(--ink);font:inherit;padding:2px 0}
+button.pt b{display:block;font-size:14px;font-weight:600;overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+button.pt small{display:block;font-size:11.5px;color:var(--faint);margin-top:1px}
+.piece .mini{padding:1px 7px;font-size:12px;line-height:1.5}
+.piece .mini[disabled]{opacity:.3;cursor:default}
 .wallgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));
   gap:12px;margin-top:14px}
 .wallit{margin:0;border:1px solid var(--line);border-radius:11px;overflow:hidden;
@@ -255,6 +277,7 @@ button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
     <button data-v="calendar">Calendar</button>
     <button data-v="counsel">Counsel</button>
     <button data-v="news">Good news</button>
+    <button data-v="book">The book</button>
     <button data-v="wall">Wall of fame</button>
   </nav>
 </header>
@@ -270,6 +293,7 @@ button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
   <div class="view" id="v-cto"></div>
   <div class="view" id="v-counsel"></div>
   <div class="view" id="v-news"></div>
+  <div class="view" id="v-book"></div>
   <div class="view" id="v-wall"></div>
 </main>
 
@@ -387,7 +411,7 @@ function toneToggle(on){
 $("#toneBtn").onclick=()=>toneToggle(!TONE_ON);
 
 /* ---------------- painting ---------------- */
-function paint(){ hdr(); today_(); week(); cto(); news(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); wall(); }
+function paint(){ hdr(); today_(); week(); cto(); news(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); wall(); book(); }
 
 function hdr(){
   const d=new Date(S.horizon||"");
@@ -1268,6 +1292,466 @@ function cto(){
     st2.extra[d] = [...(st2.extra[d]||[]), {t, w:"", p:50}];
     inp.value = ""; save(); cto();
   });
+}
+
+/* ============ THE BOOK ============
+
+   A storehouse first and a manuscript second. Ideas get thrown in without
+   ceremony, titles compete until one is chosen, and pieces -- memories,
+   anecdotes, essays -- are written whenever they arrive. Only when you say so
+   are they assembled, in an order you set, into a document.
+
+   Both exporters are written here by hand. This project carries no third-party
+   code and fetches nothing from a CDN, and a manuscript is exactly the kind of
+   thing you want to be able to produce on a laptop with no network:
+
+     .docx is a ZIP of XML, so there is a small store-only ZIP writer below.
+     .pdf is assembled object by object with the standard Helvetica faces.
+
+   Neither is typeset -- they are clean manuscripts, which is what an editor
+   or a self-publishing tool wants anyway.
+*/
+
+const KINDS = ["Memory", "Anecdote", "Essay", "Chapter", "Note"];
+
+function bookState(){
+  S.book = S.book || {};
+  const b = S.book;
+  b.title = b.title || ""; b.subtitle = b.subtitle || ""; b.author = b.author || "";
+  b.ideas = b.ideas || []; b.titles = b.titles || []; b.pieces = b.pieces || [];
+  return b;
+}
+const words = t => (String(t || "").trim().match(/\S+/g) || []).length;
+
+function bookStats(){
+  const b = bookState();
+  const used = b.pieces.filter(p => p.use !== false);
+  const w = used.reduce((n, p) => n + words(p.body), 0);
+  return {w, pieces: used.length, all: b.pieces.length,
+          pages: Math.max(1, Math.round(w / 280))};      // 280 words a printed page
+}
+
+let BOOKSEL = null;
+
+function book(){
+  const b = bookState(), st = bookStats();
+  const sel = b.pieces.find(p => p.id === BOOKSEL) || null;
+
+  $("#v-book").innerHTML = `
+    <p class="lede">The book</p>
+    <p class="sub">Throw things in here the moment they arrive — an idea, a title, a memory you do
+      not want to lose. Assemble it when there is something to assemble. Nothing leaves this
+      server until you download it.</p>
+
+    <div class="insts">
+      ${inst(st.w.toLocaleString(), "words in the book", st.pieces + " of " + st.all + " pieces")}
+      ${inst("~" + st.pages, "printed pages", st.pages >= 200 ? "a book" : "keep going")}
+      ${inst(b.ideas.length, "ideas waiting", "")}
+      ${inst(b.titles.length, "titles in the running",
+             (b.titles.find(t => t.fav) || {}).t ? "one chosen" : "none chosen")}
+    </div>
+
+    <div class="grid g2 top" style="margin-top:14px">
+      <div class="card">
+        <div class="lbl">Sparks
+          <span class="gapnote" style="margin:0">— unjudged, unordered, and never deleted by accident</span></div>
+        <div class="row">
+          <input id="bIdea" placeholder="An idea, a line, a thing that happened" style="flex:1;min-width:180px">
+          <button class="act" id="bIdeaAdd">Throw it in</button>
+        </div>
+        <div class="sparks">
+          ${b.ideas.length ? b.ideas.map((x, i) => `<div class="spark">
+            <span>${esc(x.t)}</span>
+            <button class="mini" data-spark2="${i}" title="Make it a piece">write it</button>
+            <button class="x" data-sparkdel="${i}">×</button></div>`).join("")
+            : `<p class="sub" style="margin:8px 0 0">Empty. That is the only wrong state for this box.</p>`}
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="lbl">Titles in the running
+          <span class="gapnote" style="margin:0">— star the one, the rest stay as evidence you tried</span></div>
+        <div class="row">
+          <input id="bTitle" placeholder="A title worth arguing about" style="flex:1;min-width:180px">
+          <button class="act" id="bTitleAdd">Add</button>
+        </div>
+        <div class="sparks">
+          ${b.titles.length ? b.titles.map((x, i) => `<div class="spark">
+            <button class="star${x.fav ? " on" : ""}" data-fav="${i}" title="Choose this one">${x.fav ? "★" : "☆"}</button>
+            <span>${esc(x.t)}</span>
+            <button class="x" data-tdel="${i}">×</button></div>`).join("")
+            : `<p class="sub" style="margin:8px 0 0">No titles yet. Bad ones count — they are how you find the good one.</p>`}
+        </div>
+      </div>
+    </div>
+
+    <div class="grid g2 top" style="margin-top:14px">
+      <div class="card">
+        <div class="lbl">The manuscript</div>
+        <p class="sub" style="margin:-2px 0 10px">In the order they will be read. Untick a piece to keep it
+          in the storehouse but out of the book.</p>
+        <div class="row" style="margin-bottom:10px">
+          <button class="mini" id="bNew">+ New piece</button>
+        </div>
+        <div class="pieces">
+          ${b.pieces.length ? b.pieces.map((p, i) => `<div class="piece${p.id === BOOKSEL ? " on" : ""}">
+            <input type="checkbox" data-use="${esc(p.id)}" ${p.use !== false ? "checked" : ""} title="Include in the book">
+            <button class="pt" data-open="${esc(p.id)}">
+              <b>${esc(p.t || "Untitled")}</b>
+              <small>${esc(p.kind || "Note")} · ${words(p.body)} words</small></button>
+            <button class="mini" data-up="${i}" ${i === 0 ? "disabled" : ""}>↑</button>
+            <button class="mini" data-down="${i}" ${i === b.pieces.length - 1 ? "disabled" : ""}>↓</button>
+            <button class="x" data-pdel="${esc(p.id)}">×</button>
+          </div>`).join("")
+            : `<p class="sub" style="margin:0">Nothing written yet. Start one — or promote a spark.</p>`}
+        </div>
+      </div>
+
+      <div class="card">
+        ${sel ? `
+          <div class="lbl">Writing</div>
+          <input id="pTitle" value="${esc(sel.t || "")}" placeholder="What this piece is called"
+            style="font-weight:600;font-size:16px">
+          <div class="row" style="margin-top:8px">
+            <select id="pKind" style="max-width:150px">
+              ${KINDS.map(k => `<option${k === (sel.kind || "Note") ? " selected" : ""}>${k}</option>`).join("")}
+            </select>
+            <span class="gapnote" style="margin:0">${words(sel.body)} words · saves as you type</span>
+          </div>
+          <textarea id="pBody" rows="18" placeholder="Write it. A blank line between paragraphs."
+            style="margin-top:10px;line-height:1.65">${esc(sel.body || "")}</textarea>`
+        : `<div class="lbl">Writing</div>
+           <p class="sub" style="margin:0">Choose a piece on the left, or start a new one. The editor
+             saves as you type — there is no save button to forget.</p>`}
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="lbl">Assemble and take it away</div>
+      <p class="sub" style="margin:-2px 0 12px">A title page, then every ticked piece in order, each
+        starting on a fresh page. The .docx opens in Word or Google Docs; the .pdf is a clean
+        manuscript, which is what an editor or a self-publishing tool asks for.</p>
+      <div class="row">
+        <input id="bkTitle" value="${esc(b.title)}" placeholder="Book title" style="flex:1;min-width:180px">
+        <input id="bkSub" value="${esc(b.subtitle)}" placeholder="Subtitle" style="flex:1;min-width:160px">
+        <input id="bkAuthor" value="${esc(b.author)}" placeholder="Author" style="max-width:200px">
+      </div>
+      <div class="row" style="margin-top:12px;align-items:center">
+        <button class="act" id="bkDocx">Download .docx</button>
+        <button class="act" id="bkPdf">Download .pdf</button>
+        <span class="gapnote" id="bkMsg" style="margin:0">${st.w.toLocaleString()} words · about ${st.pages} page${st.pages===1?'':'s'}</span>
+      </div>
+    </div>`;
+
+  const b2 = () => bookState();
+  const addIdea = () => { const t = $("#bIdea").value.trim(); if(!t) return;
+    b2().ideas.unshift({t, on: today()}); $("#bIdea").value = ""; save(); book(); };
+  $("#bIdeaAdd").onclick = addIdea;
+  $("#bIdea").onkeydown = e => { if(e.key === "Enter") addIdea(); };
+
+  const addTitle = () => { const t = $("#bTitle").value.trim(); if(!t) return;
+    b2().titles.unshift({t, fav: false}); $("#bTitle").value = ""; save(); book(); };
+  $("#bTitleAdd").onclick = addTitle;
+  $("#bTitle").onkeydown = e => { if(e.key === "Enter") addTitle(); };
+
+  $$("#v-book [data-sparkdel]").forEach(x => x.onclick = () => {
+    b2().ideas.splice(+x.dataset.sparkdel, 1); save(); book(); });
+  $$("#v-book [data-tdel]").forEach(x => x.onclick = () => {
+    b2().titles.splice(+x.dataset.tdel, 1); save(); book(); });
+  $$("#v-book [data-fav]").forEach(x => x.onclick = () => {
+    const i = +x.dataset.fav, ts = b2().titles;
+    const was = ts[i].fav;
+    ts.forEach(t => t.fav = false);
+    ts[i].fav = !was;                       // starring the starred one unchooses it
+    if(ts[i].fav && !b2().title) b2().title = ts[i].t;
+    save(); book();
+  });
+
+  // A spark becomes a piece and leaves the box: the storehouse is for things
+  // not yet started, and leaving it in both places is how a list rots.
+  $$("#v-book [data-spark2]").forEach(x => x.onclick = () => {
+    const i = +x.dataset.spark2, idea = b2().ideas[i];
+    const p = {id: "p" + Date.now().toString(36), t: idea.t, kind: "Note", body: "", use: true};
+    b2().pieces.push(p); b2().ideas.splice(i, 1);
+    BOOKSEL = p.id; save(); book();
+  });
+
+  $("#bNew").onclick = () => {
+    const p = {id: "p" + Date.now().toString(36), t: "", kind: "Note", body: "", use: true};
+    b2().pieces.push(p); BOOKSEL = p.id; save(); book();
+    const el = $("#pTitle"); if(el) el.focus();
+  };
+  $$("#v-book [data-open]").forEach(x => x.onclick = () => { BOOKSEL = x.dataset.open; book(); });
+  $$("#v-book [data-pdel]").forEach(x => x.onclick = () => {
+    const id = x.dataset.pdel, p = b2().pieces.find(y => y.id === id);
+    if(words(p.body) > 20 && !confirm(`Delete "${p.t || "Untitled"}"? It has ${words(p.body)} words.`)) return;
+    b2().pieces = b2().pieces.filter(y => y.id !== id);
+    if(BOOKSEL === id) BOOKSEL = null;
+    save(); book();
+  });
+  $$("#v-book [data-use]").forEach(x => x.onchange = () => {
+    b2().pieces.find(p => p.id === x.dataset.use).use = x.checked; save(); book(); });
+  const move = (i, d) => { const ps = b2().pieces;
+    if(i + d < 0 || i + d >= ps.length) return;
+    [ps[i], ps[i + d]] = [ps[i + d], ps[i]]; save(); book(); };
+  $$("#v-book [data-up]").forEach(x => x.onclick = () => move(+x.dataset.up, -1));
+  $$("#v-book [data-down]").forEach(x => x.onclick = () => move(+x.dataset.down, 1));
+
+  if(sel){
+    const cur = () => b2().pieces.find(p => p.id === BOOKSEL);
+    $("#pTitle").oninput = e => { cur().t = e.target.value; save(); paintPieceList(); };
+    $("#pKind").onchange = e => { cur().kind = e.target.value; save(); paintPieceList(); };
+    $("#pBody").oninput = e => { cur().body = e.target.value; save(); paintPieceList(); };
+  }
+
+  ["bkTitle:title", "bkSub:subtitle", "bkAuthor:author"].forEach(pair => {
+    const [id, key] = pair.split(":");
+    $("#" + id).oninput = e => { b2()[key] = e.target.value; save(); };
+  });
+  $("#bkDocx").onclick = () => exportBook("docx");
+  $("#bkPdf").onclick  = () => exportBook("pdf");
+}
+
+/* Redrawing the whole view on every keystroke would take the caret with it,
+   so the list and the counters are updated in place while the editor is
+   being typed into. */
+function paintPieceList(){
+  const b = bookState(), st = bookStats();
+  b.pieces.forEach(p => {
+    const btn = document.querySelector(`#v-book [data-open="${p.id}"]`);
+    if(btn) btn.innerHTML = `<b>${esc(p.t || "Untitled")}</b><small>${esc(p.kind || "Note")} · ${words(p.body)} words</small>`;
+  });
+  const m = $("#bkMsg");
+  if(m) m.textContent = `${st.w.toLocaleString()} words · about ${st.pages} page${st.pages===1?'':'s'}`;
+}
+
+/* ---- assembling ---- */
+
+function bookDoc(){
+  const b = bookState();
+  return {
+    title: b.title || (b.titles.find(t => t.fav) || {}).t || "Untitled",
+    subtitle: b.subtitle || "",
+    author: b.author || (S.who || {}).name || "",
+    pieces: b.pieces.filter(p => p.use !== false)
+      .map(p => ({t: p.t || "Untitled", kind: p.kind || "", body: p.body || ""})),
+  };
+}
+
+function download(blob, name){
+  const u = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = u; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(u), 4000);
+}
+const slug = s => (s || "book").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "book";
+
+function exportBook(kind){
+  const d = bookDoc();
+  if(!d.pieces.length){ $("#bkMsg").textContent = "nothing ticked to put in it yet"; return; }
+  try{
+    if(kind === "docx") download(docxBlob(d), slug(d.title) + ".docx");
+    else download(pdfBlob(d), slug(d.title) + ".pdf");
+    $("#bkMsg").textContent = `${kind} written · ${bookStats().w.toLocaleString()} words`;
+  }catch(e){
+    $("#bkMsg").textContent = "could not build it: " + e.message;
+  }
+}
+
+/* ---- .docx : a ZIP of XML ---- */
+
+const CRCTAB = (() => {
+  const t = new Uint32Array(256);
+  for(let n = 0; n < 256; n++){
+    let c = n;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[n] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(u8){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < u8.length; i++) c = CRCTAB[(c ^ u8[i]) & 255] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+
+/* Store only, no deflate. A manuscript is a few hundred kilobytes of text and
+   Word does not care; writing a compressor here would be the tail wagging. */
+function zipBlob(files, mime){
+  const enc = new TextEncoder(), parts = [], central = [];
+  const u16 = n => [n & 255, (n >>> 8) & 255];
+  const u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  let off = 0;
+  for(const f of files){
+    const nm = enc.encode(f.name), data = enc.encode(f.body), c = crc32(data);
+    const head = new Uint8Array([...u32(0x04034b50), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(0), ...u32(c), ...u32(data.length), ...u32(data.length),
+      ...u16(nm.length), ...u16(0)]);
+    parts.push(head, nm, data);
+    central.push({nm, c, len: data.length, off});
+    off += head.length + nm.length + data.length;
+  }
+  const cd = [];
+  let cdLen = 0;
+  for(const e of central){
+    const h = new Uint8Array([...u32(0x02014b50), ...u16(20), ...u16(20), ...u16(0), ...u16(0),
+      ...u16(0), ...u16(0), ...u32(e.c), ...u32(e.len), ...u32(e.len), ...u16(e.nm.length),
+      ...u16(0), ...u16(0), ...u16(0), ...u16(0), ...u32(0), ...u32(e.off)]);
+    cd.push(h, e.nm);
+    cdLen += h.length + e.nm.length;
+  }
+  const end = new Uint8Array([...u32(0x06054b50), ...u16(0), ...u16(0),
+    ...u16(central.length), ...u16(central.length), ...u32(cdLen), ...u32(off), ...u16(0)]);
+  return new Blob([...parts, ...cd, end], {type: mime});
+}
+
+const xe = s => String(s || "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
+  .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+function docxBlob(d){
+  const P = (text, o = {}) =>
+    `<w:p><w:pPr>${o.center ? '<w:jc w:val="center"/>' : ""}` +
+    `${o.before || o.after ? `<w:spacing${o.before ? ` w:before="${o.before}"` : ""}${o.after ? ` w:after="${o.after}"` : ""}/>` : ""}` +
+    `${o.page ? '<w:pageBreakBefore/>' : ""}</w:pPr>` +
+    (text === "" ? "" :
+      `<w:r><w:rPr>${o.b ? "<w:b/>" : ""}${o.i ? "<w:i/>" : ""}` +
+      `<w:sz w:val="${o.sz || 22}"/></w:rPr>` +
+      `<w:t xml:space="preserve">${xe(text)}</w:t></w:r>`) + `</w:p>`;
+
+  let body = P("", {before: 2400})
+           + P(d.title, {center: true, b: true, sz: 52})
+           + (d.subtitle ? P(d.subtitle, {center: true, i: true, sz: 28, before: 160}) : "")
+           + (d.author ? P(d.author, {center: true, sz: 24, before: 480}) : "");
+
+  d.pieces.forEach(p => {
+    body += P(p.t, {page: true, b: true, sz: 34, after: 240});
+    p.body.split(/\n{2,}/).forEach(par => {
+      const t = par.replace(/\s*\n\s*/g, " ").trim();
+      if(t) body += P(t, {after: 160});
+    });
+  });
+
+  const doc = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
+<w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/>
+<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440"/></w:sectPr></w:body></w:document>`;
+
+  const ct = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+<Default Extension="xml" ContentType="application/xml"/>
+<Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
+</Types>`;
+
+  const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
+</Relationships>`;
+
+  return zipBlob([
+    {name: "[Content_Types].xml", body: ct},
+    {name: "_rels/.rels", body: rels},
+    {name: "word/document.xml", body: doc},
+  ], "application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+}
+
+/* ---- .pdf : written object by object ---- */
+
+// Helvetica is one of the fourteen faces every reader has, so nothing needs
+// embedding. Widths are approximated -- a manuscript wants a readable measure,
+// not justified type.
+const PW = 595, PH = 842, MG = 64;
+function wrap(text, size, width){
+  const max = Math.floor(width / (size * 0.5));
+  const out = [];
+  for(const para of String(text).split(/\n/)){
+    const ws = para.trim().split(/\s+/).filter(Boolean);
+    if(!ws.length){ out.push(""); continue; }
+    let line = "";
+    for(const w of ws){
+      if(line && (line + " " + w).length > max){ out.push(line); line = w; }
+      else line = line ? line + " " + w : w;
+    }
+    if(line) out.push(line);
+  }
+  return out;
+}
+const pdfStr = s => String(s)
+  .replace(/[‘’]/g, "'").replace(/[“”]/g, '"')
+  .replace(/[–—]/g, "-").replace(/…/g, "...")
+  .replace(/[\\()]/g, m => "\\" + m)
+  .replace(/[^\x20-\x7e]/g, "?");
+
+function pdfBlob(d){
+  const pages = [];          // each: array of {x, y, size, bold, text}
+  let cur = [], y = 0;
+  const newPage = () => { cur = []; pages.push(cur); y = PH - MG - 20; };
+
+  // title page
+  newPage();
+  y = PH * 0.62;
+  cur.push({x: null, y, size: 26, bold: true, text: d.title});
+  if(d.subtitle){ y -= 34; cur.push({x: null, y, size: 13, bold: false, text: d.subtitle}); }
+  if(d.author){ y -= 60; cur.push({x: null, y, size: 12, bold: false, text: d.author}); }
+
+  d.pieces.forEach(p => {
+    newPage();
+    y = PH - MG - 40;
+    wrap(p.t, 17, PW - 2 * MG).forEach(l => {
+      cur.push({x: MG, y, size: 17, bold: true, text: l}); y -= 24;
+    });
+    y -= 14;
+    p.body.split(/\n{2,}/).forEach(par => {
+      const lines = wrap(par.replace(/\s*\n\s*/g, " ").trim(), 11, PW - 2 * MG);
+      for(const l of lines){
+        if(y < MG + 30){ newPage(); y = PH - MG; }
+        if(l) cur.push({x: MG, y, size: 11, bold: false, text: l});
+        y -= 16;
+      }
+      y -= 8;
+    });
+  });
+
+  const streams = pages.map((items, i) => {
+    let s = "";
+    for(const it of items){
+      const f = it.bold ? "/F2" : "/F1";
+      const t = pdfStr(it.text);
+      // A null x means centred: Helvetica averages about half the point size.
+      const x = it.x === null ? Math.max(MG, (PW - t.length * it.size * 0.5) / 2) : it.x;
+      s += `BT ${f} ${it.size} Tf ${x.toFixed(1)} ${it.y.toFixed(1)} Td (${t}) Tj ET\n`;
+    }
+    if(i > 0) s += `BT /F1 9 Tf ${(PW / 2 - 8).toFixed(1)} ${(MG - 24).toFixed(1)} Td (${i}) Tj ET\n`;
+    return s;
+  });
+
+  // object 1 catalog, 2 pages, 3 F1, 4 F2, then page/content pairs
+  const objs = [];
+  const nPages = pages.length;
+  const kids = [];
+  for(let i = 0; i < nPages; i++) kids.push(`${5 + i * 2} 0 R`);
+  objs.push(`<< /Type /Catalog /Pages 2 0 R >>`);
+  objs.push(`<< /Type /Pages /Kids [${kids.join(" ")}] /Count ${nPages} >>`);
+  objs.push(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>`);
+  objs.push(`<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>`);
+  for(let i = 0; i < nPages; i++){
+    objs.push(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${PW} ${PH}] ` +
+              `/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${6 + i * 2} 0 R >>`);
+    objs.push(`<< /Length ${streams[i].length} >>\nstream\n${streams[i]}endstream`);
+  }
+
+  let out = "%PDF-1.4\n";
+  const offs = [];
+  objs.forEach((o, i) => { offs.push(out.length); out += `${i + 1} 0 obj\n${o}\nendobj\n`; });
+  const xref = out.length;
+  out += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n`;
+  offs.forEach(o => { out += String(o).padStart(10, "0") + " 00000 n \n"; });
+  out += `trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+
+  const bytes = new Uint8Array(out.length);
+  for(let i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 255;
+  return new Blob([bytes], {type: "application/pdf"});
 }
 
 /* ============ THE WALL ============ */
