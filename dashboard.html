@@ -88,6 +88,38 @@ button.x:hover{color:var(--red)}
 .gapnum{margin-left:auto;font-variant-numeric:tabular-nums;color:var(--soft);font-size:13px}
 .bar{height:6px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:9px}
 .bar i{display:block;height:100%;background:var(--gold)}
+/* ---- Top CTO ---- */
+.ctonext{border-color:var(--gold);position:relative}
+.ctotitle{font-size:26px;font-weight:600;letter-spacing:-.01em;margin-top:6px;line-height:1.2}
+.ctodom{display:inline-block;margin-top:8px;font-size:11px;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);
+  border-radius:999px;padding:2px 10px}
+.ctothen{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);
+  font-size:12.5px;color:var(--faint);display:flex;gap:18px;flex-wrap:wrap}
+.ctothen i{font-style:normal;opacity:.6}
+.ctogrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:14px;margin-top:14px}
+.ctodomcard{margin:0}
+.ctohead{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ctopc{font-size:22px;font-weight:600;color:var(--gold);flex:0 0 auto}
+.ctosec{font-size:11px;letter-spacing:.09em;text-transform:uppercase;color:var(--faint);
+  margin:16px 0 8px}
+.ctosec em{font-style:normal;color:var(--gold);letter-spacing:0;text-transform:none}
+/* One capability. The description carries the reason it is on the list, which
+   is the part that stops this becoming a wish list. */
+.cap{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:9px 0;
+  border-bottom:1px solid var(--line);font-size:14px}
+.cap:last-of-type{border-bottom:0}
+/* Every cell is placed explicitly. Auto-placement put the button in the first
+   column and squeezed the text into a ribbon, because a row span without a
+   column is still free to choose one. */
+.cap b{grid-area:1/1;font-weight:600;min-width:0}
+.cap span{grid-area:2/1;font-size:12.5px;color:var(--faint);line-height:1.5;min-width:0}
+.cap button{grid-area:1/2/3/3;align-self:center;white-space:nowrap}
+.cap.held b{color:var(--soft)}
+.cap.held b::before{content:"✓ ";color:var(--gold)}
+.cap.won b::before{content:"✓ "}
+.cap.isnext{background:var(--line);margin:0 -13px;padding:9px 13px;border-radius:8px}
+.cap.isnext b::before{content:"→ ";color:var(--gold)}
 .gapnote{color:var(--faint);font-size:12.5px;margin-top:6px}
 
 /* ---- practice ---- */
@@ -173,6 +205,7 @@ button.x:hover{color:var(--red)}
   <nav class="tabs" id="tabs">
     <button data-v="today" class="on">Today</button>
     <button data-v="week">This week</button>
+    <button data-v="cto">Top CTO</button>
     <button data-v="ladder">The Ladder</button>
     <button data-v="gaps">Golden gaps</button>
     <button data-v="practice">Practice</button>
@@ -192,6 +225,7 @@ button.x:hover{color:var(--red)}
   <div class="view" id="v-sit"></div>
   <div class="view" id="v-calendar"></div>
   <div class="view" id="v-week"></div>
+  <div class="view" id="v-cto"></div>
   <div class="view" id="v-counsel"></div>
   <div class="view" id="v-news"></div>
   <div class="view" id="v-wall"></div>
@@ -308,7 +342,7 @@ function toneToggle(on){
 $("#toneBtn").onclick=()=>toneToggle(!TONE_ON);
 
 /* ---------------- painting ---------------- */
-function paint(){ hdr(); today_(); week(); news(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); wall(); }
+function paint(){ hdr(); today_(); week(); cto(); news(); ladder(); gaps(); practice(); sit(); calendar_(); counsel(); wall(); }
 
 function hdr(){
   const d=new Date(S.horizon||"");
@@ -593,33 +627,16 @@ function counsel(){
    a week having actually done five things.
 
    The pools are written here rather than fetched live: a queue that changes
-   under you is not a commitment. They are grounded in what the market is
-   short of in 2026 -- production GenAI and LLM infrastructure people are the
-   scarcest, roughly one qualified engineer per ten open roles -- and in the
-   ground already held: storage, security compliance, cloud, AI.
+   under you is not a commitment.
+
+   Technical skill is NOT one of these queues. It used to be, and it was the
+   wrong shape for it: a rotating five turns a career into a to-do list, and
+   what actually decides whether you are hired as a CTO is where you stand in
+   a handful of domains and which one you close next. That lives on the Top
+   CTO page, which does not rotate and does not refill.
 */
 
 const POOLS = {
-  skills: {
-    n: 5, title: "Skills to pick up",
-    note: "Five at a time. Each is a week's honest work, not a course to collect.",
-    items: [
-      ["Serve one open-weights model yourself", "vLLM or TGI on a single GPU. Batching, KV cache, quantisation. This is the scarcest skill in the market right now and the closest to what you already know."],
-      ["Build a retrieval index end to end", "Chunking, embedding, reranking, and an eval set that tells you when it got worse. You have already built the sparse version by hand."],
-      ["Write a Kubernetes operator", "A CRD and a controller that reconciles. The pattern behind every platform product you would sell."],
-      ["eBPF for runtime visibility", "Trace syscalls without changing the workload. The direction compliance detection is moving."],
-      ["Terraform modules that others reuse", "Not scripts — versioned, tested modules with inputs and outputs. Infrastructure as a product."],
-      ["Confidential computing", "TEEs, attestation, encrypted memory. Where private-cloud security is heading next."],
-      ["Unit economics on one page", "CAC, LTV, gross margin, payback. Learn it on a business you admire before you need it for your own."],
-      ["Pricing and packaging", "Why three tiers, where the anchor sits, what a seat is worth. The single highest-leverage founder skill that is not code."],
-      ["Write one technical essay a month", "Publishing is how a deep engineer becomes known without a marketing budget."],
-      ["Read a cap table properly", "Pre and post money, option pool shuffle, liquidation preference. Learn it before you are sitting opposite someone who already knows it."],
-      ["Cold outreach that gets replies", "Twenty sent, honestly measured. A skill, not a personality trait."],
-      ["Financial modelling in a spreadsheet", "Three statements, driver-based. You cannot delegate the judgement until you have done it once."],
-      ["System design interviews from the other side", "Run them. You learn more about architecture judging it than doing it."],
-      ["One hard conversation a week", "Ask for something you think you will be refused. The skill is tolerance, not technique."],
-    ],
-  },
   behaviour: {
     n: 1, title: "One behaviour to put down",
     note: "One at a time, because you cannot change two. Worth examining, not a diagnosis.",
@@ -747,6 +764,195 @@ function week(){
 
   $$("#v-week input[data-k]").forEach(cb => cb.onchange = () => {
     if(cb.checked) tickPool(cb.dataset.k, cb.dataset.t);
+  });
+}
+
+/* ============ TOP CTO ============
+
+   Four domains, because these four are what a CTO of an infrastructure
+   company is actually asked about, and they are the four this career already
+   runs through. Each carries what is HELD -- earned, evidenced, not
+   aspirational -- and what is OPEN.
+
+   The page answers one question before anything else: what next. Exactly one
+   thing is named, because a list of twelve gaps is a way of not choosing.
+   The order is deliberate and explainable in a sentence: closeness to ground
+   already held first (that is what makes it conquerable in weeks rather than
+   years), then how short the market is of it. It is not recency and it is
+   not what is interesting this month.
+
+   Conquering something moves it into HELD with the date. Nothing rotates
+   back in and nothing expires -- this is a map of a career, not a queue.
+*/
+const CTO = {
+  ai: {
+    label: "AI", note: "The newest ground, and the one the next role is priced on.",
+    held: [
+      ["Retrieval built by hand", "Sparse vectors, cosine similarity, chunking and ranking written from scratch — not a framework call."],
+      ["RAG in production", "A live corpus, a real index, and answers that cite their source."],
+      ["Agentic automation that closes work", "Agents that finish root causes end to end rather than summarising them."],
+      ["Azure AI foundations", "Certified, and the vocabulary that goes with it."],
+    ],
+    gaps: [
+      ["Serve an open-weights model yourself", "vLLM or TGI on one GPU: batching, KV cache, quantisation. The scarcest skill in the market and the closest to infrastructure you already run.", 100],
+      ["An evaluation harness you trust", "A held-out set and a score that tells you when a change made it worse. Without this every model decision is taste.", 92],
+      ["Cost per token, planned not discovered", "GPU capacity, batching economics, what a served answer actually costs. The question a board asks first.", 86],
+      ["Fine-tuning and adapters", "LoRA, when it beats retrieval and when it does not. Mostly it does not — knowing which is the skill.", 70],
+      ["Guardrails at scale", "Prompt injection, tool permissions, blast radius. Your security ground applies directly and almost nobody joins the two.", 78],
+      ["ML platform shape", "Model registry, feature store, rollout and rollback. The platform-product view rather than the model view.", 62],
+    ],
+  },
+  storage: {
+    label: "Storage", note: "Seventeen years of ground. The gaps here are the newest layer, not the basics.",
+    held: [
+      ["Enterprise arrays end to end", "PowerMax, SRDF, NAS: provisioning, replication, failure and recovery under real load."],
+      ["Hyperconverged and VCF", "VxRail and Cloud Foundation in production, not in a lab."],
+      ["Data protection and continuity", "Replication topologies, RPO and RTO argued with numbers."],
+      ["Performance under pressure", "Latency and throughput debugged where the customer was already angry."],
+    ],
+    gaps: [
+      ["Object storage at scale", "S3 semantics, erasure coding, eventual consistency. Every AI pipeline sits on it and it is the one storage layer you have not owned.", 88],
+      ["Storage for training pipelines", "Checkpointing, parallel filesystems, the read pattern of a GPU cluster. This is where your ground meets the money.", 96],
+      ["Lakehouse table formats", "Iceberg and Delta: what a table is when the storage is object. The literacy gap between storage and data teams.", 68],
+      ["NVMe-oF and CXL", "Where the fabric is going. Worth being early rather than current.", 54],
+    ],
+  },
+  cloud: {
+    label: "Cloud", note: "You have run private cloud. The gap is the platform-as-product view.",
+    held: [
+      ["Private cloud at enterprise scale", "VCF and virtualisation as an operated platform with tenants."],
+      ["Infrastructure operations", "Upgrades, capacity, the incidents nobody schedules."],
+      ["Release and delivery", "Getting infrastructure change into production repeatably."],
+    ],
+    gaps: [
+      ["Write a Kubernetes operator", "A CRD and a controller that reconciles. This is the pattern behind every platform product you might sell.", 90],
+      ["Terraform modules others reuse", "Versioned and tested with inputs and outputs — infrastructure as a product, not scripts.", 76],
+      ["FinOps as a discipline", "Unit cost per tenant, per workload, per token. A CTO is asked this monthly.", 72],
+      ["Multi-tenancy and service mesh", "Isolation, quotas, identity between services. Where private-cloud instinct transfers and where it misleads.", 66],
+      ["Internal developer platform", "Golden paths, self-service, the platform team as a product team with users.", 58],
+    ],
+  },
+  security: {
+    label: "Security", note: "Compliance is held. The open ground is runtime and supply chain.",
+    held: [
+      ["Hardening to STIG and DISA", "Applied against real systems and defended in audit."],
+      ["Secure development", "Dell Green Belt: threat modelling and review as routine, not as a gate."],
+      ["Zero Trust", "Certified, and the architecture argument that goes with it."],
+      ["Compliance that survives audit", "Evidence, exceptions and the paperwork that makes controls real."],
+    ],
+    gaps: [
+      ["eBPF for runtime visibility", "Trace syscalls without touching the workload. Exactly where compliance detection is heading and adjacent to everything you already know.", 84],
+      ["Supply chain integrity", "SBOM, SLSA, signing and provenance. The control plane regulators are moving to next.", 80],
+      ["Securing AI systems", "Model and data governance, prompt injection, tool permissions. Almost nobody holds both halves of this — you can.", 94],
+      ["Confidential computing", "TEEs, attestation, encrypted memory. Where private cloud gets its next selling point.", 64],
+      ["Workload identity at scale", "SPIFFE and short-lived credentials. The end of the long-lived secret.", 60],
+    ],
+  },
+};
+
+function ctoState(){
+  S.cto = S.cto || {done:{}, extra:{}};
+  S.cto.done = S.cto.done || {};
+  S.cto.extra = S.cto.extra || {};
+  return S.cto;
+}
+const ctoKey = (d, t) => d + "::" + t;
+
+/* Every open gap across the four domains, hardest-priority first. */
+function ctoOpen(){
+  const st = ctoState(), out = [];
+  for(const d of Object.keys(CTO)){
+    const all = [...CTO[d].gaps, ...(st.extra[d]||[]).map(x => [x.t, x.w||"", +x.p||50])];
+    for(const [t, why, p] of all)
+      if(!st.done[ctoKey(d,t)]) out.push({d, t, why, p});
+  }
+  return out.sort((a,b) => b.p - a.p || a.t.localeCompare(b.t));
+}
+
+function ctoConquer(d, t){
+  ctoState().done[ctoKey(d,t)] = today();
+  save(); cto();
+}
+function ctoUndo(d, t){
+  delete ctoState().done[ctoKey(d,t)];
+  save(); cto();
+}
+
+function cto(){
+  const st = ctoState(), open = ctoOpen(), next = open[0], then = open.slice(1,3);
+
+  const hero = next ? `
+    <div class="card ctonext">
+      <div class="lbl">Next to conquer</div>
+      <div class="ctotitle">${esc(next.t)}</div>
+      <div class="ctodom">${esc(CTO[next.d].label)}</div>
+      <p class="sub" style="margin:10px 0 0">${esc(next.why)}</p>
+      <div class="row" style="margin-top:16px;align-items:center">
+        <button class="act" onclick="ctoConquer('${esc(next.d)}','${esc(next.t)}')">Conquered — what is next</button>
+        <span class="gapnote">${open.length} open across four domains</span>
+      </div>
+      ${then.length ? `<div class="ctothen">Then: ${then.map(x =>
+        `<span>${esc(x.t)} <i>${esc(CTO[x.d].label)}</i></span>`).join("")}</div>` : ""}
+    </div>`
+    : `<div class="card ctonext">
+        <div class="lbl">Next to conquer</div>
+        <div class="ctotitle">Nothing open.</div>
+        <p class="sub" style="margin:10px 0 0">Four domains closed. Write the next four —
+          the map is meant to outgrow itself.</p>
+      </div>`;
+
+  const doms = Object.keys(CTO).map(d => {
+    const D = CTO[d];
+    const extra = st.extra[d] || [];
+    const gaps = [...D.gaps, ...extra.map(x => [x.t, x.w||"", +x.p||50])];
+    const won  = gaps.filter(([t]) => st.done[ctoKey(d,t)]);
+    const openG = gaps.filter(([t]) => !st.done[ctoKey(d,t)])
+                      .sort((a,b) => b[2]-a[2]);
+    const total = D.held.length + gaps.length;
+    const pc = total ? ((D.held.length + won.length) / total) * 100 : 0;
+
+    return `<div class="card ctodomcard">
+      <div class="ctohead">
+        <div><div class="lbl">${esc(D.label)}</div>
+          <p class="sub" style="margin:2px 0 0">${esc(D.note)}</p></div>
+        <div class="ctopc">${Math.round(pc)}%</div>
+      </div>
+      <div class="bar"><i style="width:${pc.toFixed(1)}%"></i></div>
+
+      <div class="ctosec">Held</div>
+      ${D.held.map(([t, w]) => `<div class="cap held">
+        <b>${esc(t)}</b><span>${esc(w)}</span></div>`).join("")}
+      ${won.map(([t, w]) => `<div class="cap held won">
+        <b>${esc(t)}</b><span>${esc(w)} <i>— conquered ${esc(st.done[ctoKey(d,t)])}</i></span>
+        <button class="mini" onclick="ctoUndo('${esc(d)}','${esc(t)}')">undo</button></div>`).join("")}
+
+      <div class="ctosec">Open${next && next.d === d ? ` <em>— next is here</em>` : ""}</div>
+      ${openG.length ? openG.map(([t, w]) => `<div class="cap${next && next.t === t && next.d === d ? " isnext" : ""}">
+        <b>${esc(t)}</b><span>${esc(w)}</span>
+        <button class="mini" onclick="ctoConquer('${esc(d)}','${esc(t)}')">done</button></div>`).join("")
+        : `<p class="sub" style="margin:0">Closed. Add what you find next.</p>`}
+
+      <div class="row" style="margin-top:12px">
+        <input data-add="${esc(d)}" placeholder="Another gap in ${esc(D.label)}" style="flex:1;min-width:170px">
+        <button class="mini" data-addb="${esc(d)}">+ Add</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  $("#v-cto").innerHTML = `
+    <p class="lede">Top CTO</p>
+    <p class="sub">Where you stand in the four domains a CTO is actually asked about, and the
+      one thing to close next. Ordered by what is nearest the ground you already hold, then by
+      how short the market is of it — so the next one is always the one you can finish.</p>
+    ${hero}
+    <div class="ctogrid">${doms}</div>`;
+
+  $$("#v-cto [data-addb]").forEach(b => b.onclick = () => {
+    const d = b.dataset.addb, inp = $(`#v-cto [data-add="${d}"]`), t = inp.value.trim();
+    if(!t) return;
+    const st2 = ctoState();
+    st2.extra[d] = [...(st2.extra[d]||[]), {t, w:"", p:50}];
+    inp.value = ""; save(); cto();
   });
 }
 
