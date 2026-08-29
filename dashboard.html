@@ -210,6 +210,16 @@ button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .wallit figcaption{font-size:12.5px;color:var(--soft);padding:8px 10px;
   display:flex;gap:6px;align-items:center}
 .wallit figcaption .x{margin-left:auto}
+/* A PDF tile shows the document itself, in the browser's own viewer. Taller
+   than the image tiles because a certificate is portrait and the point is to
+   be able to read it. */
+.wallit.ispdf{background:var(--card)}
+.pdfbox{position:relative;width:100%;aspect-ratio:3/4;background:var(--line);overflow:hidden}
+.pdfbox embed{width:100%;height:100%;display:block;border:0}
+.pdfload{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-size:12px;color:var(--faint)}
+.wallit figcaption .pdfopen{margin-left:auto;padding:2px 9px;font-size:11.5px}
+.wallit figcaption .pdfopen + .x{margin-left:4px}
 /* ---- news ---- */
 .ncat{margin:26px 0 10px;font-family:Fraunces,serif;font-size:19px}
 .ncat:first-of-type{margin-top:6px}
@@ -1300,16 +1310,24 @@ function wall(){
     <div class="card" style="margin-top:14px">
       <div class="lbl">Evidence</div>
       <p class="sub" style="margin:-2px 0 12px">Photographs, certificates, a message someone sent you.
-        Images are resized in your browser before they are saved.</p>
+        Images are resized in your browser before they are saved; a PDF is kept whole and shown
+        as its first page. Everything here stays on your own server.</p>
       <div class="row">
         <label class="mini" style="cursor:pointer">+ Add image
           <input type="file" id="wallImg" accept="image/*" multiple hidden></label>
+        <label class="mini" style="cursor:pointer">+ Add PDF
+          <input type="file" id="wallPdf" accept="application/pdf" multiple hidden></label>
         <button class="mini" id="wallNote">+ Add a note</button>
+        <span class="gapnote" id="wallRoom" style="margin:0">${storeRoom()}</span>
       </div>
       <div class="wallgrid" id="wallGrid">
-        ${S.wall.map((it,i)=>`<figure class="wallit">
+        ${S.wall.map((it,i)=>`<figure class="wallit${it.pdf?" ispdf":""}">
           ${it.img?`<img src="${it.img}" alt="">`:""}
-          <figcaption>${esc(it.t||"")}<button class="x" data-idel="${i}">×</button></figcaption>
+          ${it.pdf?`<div class="pdfbox" data-pdf="${i}">
+            <div class="pdfload">opening…</div></div>`:""}
+          <figcaption>${esc(it.t||"")}
+            ${it.pdf?`<button class="mini pdfopen" data-popen="${i}">open</button>`:""}
+            <button class="x" data-idel="${i}">×</button></figcaption>
         </figure>`).join("") || `<p class="sub" style="margin:0">Nothing here yet.</p>`}
       </div>
     </div>`;
@@ -1327,6 +1345,72 @@ function wall(){
     const t = prompt("What happened?"); if(t && t.trim()){ S.wall.unshift({t:t.trim()}); save(); wall(); }
   };
   $("#wallImg").onchange = e => { addImages(e.target.files); e.target.value = ""; };
+  $("#wallPdf").onchange = e => { addPdfs(e.target.files); e.target.value = ""; };
+
+  // Blob URLs rather than the data: URI itself. Chrome refuses to render a
+  // data: PDF in a frame, and a blob is same-origin, so the browser's own
+  // viewer takes it -- which is the whole preview, with no library to load.
+  $$("#v-wall [data-pdf]").forEach(box => {
+    const it = S.wall[+box.dataset.pdf];
+    const u = blobUrl(it && it.pdf);
+    box.innerHTML = u
+      ? `<embed src="${u}#toolbar=0&navpanes=0&view=FitH" type="application/pdf">`
+      : `<div class="pdfload">could not open</div>`;
+  });
+  $$("#v-wall [data-popen]").forEach(b => b.onclick = () => {
+    const u = blobUrl(S.wall[+b.dataset.popen].pdf);
+    if(u) window.open(u, "_blank", "noopener");
+  });
+}
+
+/* Everything lives in one JSON document with a hard ceiling on the server, so
+   the page shows the budget rather than letting a save fail silently. */
+const STORE_CEILING = 12_000_000;
+const PDF_MAX = 2_500_000;              // one certificate, comfortably
+
+function storeBytes(){
+  try { return new Blob([JSON.stringify(S)]).size; } catch(e){ return 0; }
+}
+function storeRoom(){
+  const mb = n => (n/1e6).toFixed(1);
+  return `${mb(storeBytes())} MB of ${mb(STORE_CEILING)} MB used`;
+}
+
+const _blobs = new Map();
+function blobUrl(dataUri){
+  if(!dataUri) return "";
+  if(_blobs.has(dataUri)) return _blobs.get(dataUri);
+  try{
+    const b64 = dataUri.slice(dataUri.indexOf(",") + 1);
+    const bin = atob(b64), arr = new Uint8Array(bin.length);
+    for(let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    const u = URL.createObjectURL(new Blob([arr], {type: "application/pdf"}));
+    _blobs.set(dataUri, u);
+    return u;
+  }catch(e){ return ""; }
+}
+
+/* A PDF is kept whole -- a certificate is the document, not a picture of one.
+   It is checked against the remaining room BEFORE it is added, because the
+   server rejects an oversized document outright and the failure would
+   otherwise arrive as a silent "not saved". */
+function addPdfs(files){
+  const room = () => STORE_CEILING - storeBytes() - 400_000;   // headroom
+  const msg = t => { const el = $("#wallRoom"); if(el) el.textContent = t; };
+  [...files].slice(0, 6).forEach(f => {
+    if(f.type !== "application/pdf" && !/\.pdf$/i.test(f.name)) return;
+    if(f.size > PDF_MAX)
+      return msg(`${f.name} is ${(f.size/1e6).toFixed(1)} MB — 2.5 MB is the limit for one file`);
+    const r = new FileReader();
+    r.onload = () => {
+      const uri = r.result;
+      if(uri.length > room())
+        return msg(`no room left for ${f.name} — remove something first (${storeRoom()})`);
+      S.wall.unshift({pdf: uri, t: f.name.replace(/\.pdf$/i, ""), size: f.size});
+      save(); wall();
+    };
+    r.readAsDataURL(f);
+  });
 }
 
 /* Resized here, before anything is sent: a phone photograph is several
