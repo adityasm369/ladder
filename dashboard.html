@@ -120,6 +120,25 @@ button.x:hover{color:var(--red)}
 .cap.won b::before{content:"✓ "}
 .cap.isnext{background:var(--line);margin:0 -13px;padding:9px 13px;border-radius:8px}
 .cap.isnext b::before{content:"→ ";color:var(--gold)}
+/* ---- the panel ---- */
+.grid.top{align-items:start}
+.insts{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-top:16px}
+.inst{border:1px solid var(--line);border-radius:12px;padding:13px 14px;background:var(--card)}
+.iv{font-size:27px;font-weight:600;letter-spacing:-.02em;line-height:1.05}
+.iv small{font-size:15px;font-weight:500;color:var(--faint)}
+.il{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+.is{font-size:11.5px;color:var(--gold);margin-top:3px}
+.prow{display:grid;grid-template-columns:auto 1fr;gap:10px;align-items:center;margin-bottom:7px}
+.prow input[type=checkbox]{width:auto;margin:0}
+.prow .pin{border-color:transparent;background:none;padding-left:0;font-weight:500}
+.prow input:checked ~ .pin{text-decoration:line-through;color:var(--faint)}
+.pill{display:inline-block;margin-left:7px;font-size:10.5px;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--gold);border:1px solid var(--gold);border-radius:999px;
+  padding:1px 8px;vertical-align:middle}
+.energy{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+button.eb{width:34px;height:34px;border-radius:9px;border:1px solid var(--line);
+  background:none;color:var(--soft);cursor:pointer;font:inherit}
+button.eb.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .gapnote{color:var(--faint);font-size:12.5px;margin-top:6px}
 
 /* ---- practice ---- */
@@ -351,46 +370,194 @@ function hdr(){
 }
 
 /* ---- Today ---- */
+/* The control panel.
+
+   It answers, in this order: how am I doing, what am I steering by, what am I
+   doing today, and what actually happened. The instruments across the top are
+   read-only and come from the other pages -- nothing is typed twice, and a
+   number that has no page behind it is not on here.
+
+   More is captured than before (three priorities, what you are declining,
+   energy, a win as it happens) because the things that decide a career are
+   small and get lost by evening. Everything still fits one screen. */
+
+function dayKey(d){ return d.toISOString().slice(0,10); }
+
+/* Consecutive days with at least one practice ticked. Today not yet started
+   does not break it -- a streak that dies at 00:01 measures the clock. */
+function streakLen(){
+  let n = 0;
+  for(let i = 0; i < 400; i++){
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const done = ((S.log[dayKey(d)] || {}).done || []).length;
+    if(done) n++;
+    else if(i > 0) break;
+  }
+  return n;
+}
+
+function ctoProgress(){
+  const st = ctoState();
+  let held = 0, total = 0;
+  for(const d of Object.keys(CTO)){
+    const gaps = [...CTO[d].gaps, ...((st.extra[d] || []).map(x => [x.t]))];
+    held += CTO[d].held.length + gaps.filter(([t]) => st.done[ctoKey(d, t)]).length;
+    total += CTO[d].held.length + gaps.length;
+  }
+  return {pc: total ? Math.round(held / total * 100) : 0, held, total};
+}
+
+function nextEvent(){
+  const t = today();
+  return [...(S.events || [])].filter(e => String(e.d) >= t)
+    .sort((a, b) => String(a.d).localeCompare(String(b.d)))[0] || null;
+}
+
+function inst(v, l, sub){
+  return `<div class="inst"><div class="iv">${v}</div><div class="il">${esc(l)}</div>
+    ${sub ? `<div class="is">${esc(sub)}</div>` : ""}</div>`;
+}
+
 function today_(){
-  const k=today(), e=S.log[k]||{};
+  const k = today(), e = S.log[k] || {};
+  e.prio = e.prio || [];
   const aff = S.affirmations.length
     ? S.affirmations[new Date().getDate() % S.affirmations.length] : "";
-  const open = S.rungs.find(r=>!r.done && r.nxt);
-  $("#v-today").innerHTML=`
+  const open = S.rungs.find(r => !r.done && r.nxt);
+  const hz = new Date(S.horizon || "");
+  const days = isNaN(hz) ? null : Math.ceil((hz - new Date()) / 864e5);
+  const doneToday = (e.done || []).length, allP = (S.practices || []).length;
+  const cp = ctoProgress(), nx = ctoOpen()[0], ev = nextEvent();
+  const wins = (S.wins || []).length;
+  const gap = (S.gaps || []).filter(g => +g.want > 0)
+    .map(g => ({n: g.n, pc: Math.min(100, (+g.have / +g.want) * 100)}))
+    .sort((a, b) => b.pc - a.pc)[0];
+
+  $("#v-today").innerHTML = `
   <p class="lede">${esc(new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"}))}</p>
-  <p class="sub">One page. What you intend before the day starts, and what actually happened when it ended.</p>
-  <div class="grid g2">
+  <p class="sub">The panel. What the instruments say, what you are steering by, and what
+    you did with the day — decided in the morning, answered at night.</p>
+
+  <div class="insts">
+    ${inst(days != null ? days.toLocaleString() : "—", "days to the horizon",
+           S.horizon ? new Date(S.horizon).getFullYear() : "")}
+    ${inst(streakLen(), "day practice streak", "unbroken")}
+    ${inst(`${doneToday}<small>/${allP}</small>`, "practice today",
+           doneToday === allP && allP ? "complete" : "open")}
+    ${inst(cp.pc + "<small>%</small>", "CTO ground held", `${cp.held} of ${cp.total}`)}
+    ${inst(ctoOpen().length, "domains still open", nx ? CTO[nx.d].label : "")}
+    ${inst(wins, "wins on the wall", wins ? "keep adding" : "start one")}
+  </div>
+
+  <div class="grid g2 top" style="margin-top:14px">
     <div class="card">
-      <div class="lbl">Intention</div>
-      <textarea id="tIntent" rows="3" placeholder="The one thing that would make today count.">${esc(e.intention||"")}</textarea>
-      <div class="lbl" style="margin-top:16px">Tonight</div>
-      <textarea id="tReview" rows="3" placeholder="What actually moved. What did not, and why.">${esc(e.review||"")}</textarea>
+      <div class="lbl">Steering — decided before the day starts</div>
+      <textarea id="tIntent" rows="2" placeholder="The one thing that would make today count.">${esc(e.intention||"")}</textarea>
+
+      <div class="lbl" style="margin-top:16px">The three that matter</div>
+      ${[0,1,2].map(i => {
+        const p = e.prio[i] || {t:"", done:false};
+        return `<label class="prow">
+          <input type="checkbox" data-pi="${i}" ${p.done?"checked":""}>
+          <input class="pin" data-pt="${i}" value="${esc(p.t)}"
+            placeholder="${i===0?"The one that cannot slip":i===1?"The second":"The third"}">
+        </label>`;
+      }).join("")}
+
+      <div class="lbl" style="margin-top:16px">Saying no to
+        <span class="gapnote" style="margin:0">— an unconsidered yes is a no to the ladder</span></div>
+      <input id="tNo" value="${esc(e.no||"")}" placeholder="What you are declining today">
     </div>
+
     <div class="card">
-      ${aff?`<div class="lbl">Today's line</div><p class="affirm">${esc(aff)}</p>`
-           :`<div class="lbl">Today's line</div><p class="sub" style="margin:0">Add your affirmations under Practice and one will appear here each day.</p>`}
-      ${open?`<div class="lbl" style="margin-top:20px">Next on the ladder</div>
-        <p style="margin:0"><b>${esc(open.t||open.y)}</b><br><span class="sub" style="margin:0">${esc(open.nxt)}</span></p>`:""}
+      <div class="lbl">Today's line</div>
+      ${aff ? `<p class="affirm">${esc(aff)}</p>`
+            : `<p class="sub" style="margin:0">Add your affirmations under Practice and one appears here each day.</p>`}
+
+      ${nx ? `<div class="lbl" style="margin-top:18px">Next to conquer</div>
+        <p style="margin:0"><b>${esc(nx.t)}</b>
+        <span class="pill">${esc(CTO[nx.d].label)}</span></p>` : ""}
+
+      ${open ? `<div class="lbl" style="margin-top:18px">Next on the ladder</div>
+        <p style="margin:0"><b>${esc(open.t||open.y)}</b><br>
+        <span class="sub" style="margin:0">${esc(open.nxt)}</span></p>` : ""}
+
+      ${gap ? `<div class="lbl" style="margin-top:18px">Closest golden gap</div>
+        <p style="margin:0 0 4px"><b>${esc(gap.n||"—")}</b></p>
+        <div class="bar"><i style="width:${gap.pc.toFixed(1)}%"></i></div>` : ""}
+
+      ${ev ? `<div class="lbl" style="margin-top:18px">Coming up</div>
+        <p style="margin:0"><b>${esc(ev.t)}</b>
+        <span class="sub" style="margin:0"> — ${esc(ev.k)},
+        ${Math.max(0, Math.ceil((new Date(ev.d)-new Date(today()))/864e5))} days</span></p>` : ""}
     </div>
   </div>
+
   <div class="card" style="margin-top:14px">
     <div class="lbl">Practice</div>
-    ${S.practices.map(p=>`<label class="tick">
+    ${(S.practices||[]).map(p => `<label class="tick">
       <input type="checkbox" data-p="${esc(p.id)}" ${(e.done||[]).includes(p.id)?"checked":""}>
-      <span>${esc(p.t)}</span></label>`).join("") || `<p class="sub" style="margin:0">No practices yet — add them under Practice.</p>`}
+      <span>${esc(p.t)}</span></label>`).join("")
+      || `<p class="sub" style="margin:0">No practices yet — add them under Practice.</p>`}
     <div class="streak" id="streak"></div>
     <div class="gapnote">Last thirty days. A gap is information, not a verdict.</div>
+  </div>
+
+  <div class="grid g2" style="margin-top:14px">
+    <div class="card">
+      <div class="lbl">Tonight</div>
+      <textarea id="tReview" rows="3" placeholder="What actually moved. What did not, and why.">${esc(e.review||"")}</textarea>
+      <div class="lbl" style="margin-top:16px">Energy</div>
+      <div class="energy">${[1,2,3,4,5].map(n =>
+        `<button class="eb${+e.energy===n?" on":""}" data-en="${n}">${n}</button>`).join("")}
+        <span class="gapnote" style="margin:0">1 spent · 5 charged. Worth knowing which days give it back.</span></div>
+    </div>
+    <div class="card">
+      <div class="lbl">A win, while you remember it</div>
+      <p class="sub" style="margin:-2px 0 10px">Goes straight to the wall. The map there is the only
+        honest argument that you do hard things.</p>
+      <div class="row">
+        <input id="tWinT" placeholder="In two or three words" style="flex:1;min-width:150px">
+        <input id="tWinW" type="number" min="1" max="10" value="5" title="How much it mattered" style="max-width:88px">
+        <button class="act" id="tWinAdd">Add</button>
+      </div>
+      ${wins ? `<div class="row" style="margin-top:12px">${(S.wins||[]).slice(-6).reverse()
+        .map(w => `<span class="chipx" style="padding-right:11px">${esc(w.t)}</span>`).join("")}</div>` : ""}
+    </div>
   </div>`;
 
-  $("#tIntent").oninput=e2=>{ log().intention=e2.target.value; save(); };
-  $("#tReview").oninput=e2=>{ log().review=e2.target.value; save(); };
-  $$("#v-today input[data-p]").forEach(cb=>cb.onchange=()=>{
-    const l=log(); l.done=l.done||[];
-    const id=cb.dataset.p;
-    if(cb.checked){ if(!l.done.includes(id)) l.done.push(id); }
-    else l.done=l.done.filter(x=>x!==id);
-    save(); streak();
+  $("#tIntent").oninput = ev2 => { log().intention = ev2.target.value; save(); };
+  $("#tReview").oninput = ev2 => { log().review = ev2.target.value; save(); };
+  $("#tNo").oninput     = ev2 => { log().no = ev2.target.value; save(); };
+
+  const prio = i => { const l = log(); l.prio = l.prio || [];
+                      l.prio[i] = l.prio[i] || {t:"", done:false}; return l.prio[i]; };
+  $$("#v-today [data-pt]").forEach(inp => inp.oninput = () => {
+    prio(+inp.dataset.pt).t = inp.value; save(); });
+  $$("#v-today [data-pi]").forEach(cb => cb.onchange = () => {
+    prio(+cb.dataset.pi).done = cb.checked; save(); });
+
+  $$("#v-today [data-en]").forEach(b => b.onclick = () => {
+    const l = log();
+    l.energy = (+l.energy === +b.dataset.en) ? 0 : +b.dataset.en;   // click again to clear
+    save(); today_();
   });
+
+  $$("#v-today input[data-p]").forEach(cb => cb.onchange = () => {
+    const l = log(); l.done = l.done || [];
+    const id = cb.dataset.p;
+    if(cb.checked){ if(!l.done.includes(id)) l.done.push(id); }
+    else l.done = l.done.filter(x => x !== id);
+    save(); today_();
+  });
+
+  $("#tWinAdd").onclick = () => {
+    const t = $("#tWinT").value.trim();
+    if(!t) return;
+    S.wins = [...(S.wins||[]), {t, w:+$("#tWinW").value||5, n:"", on:today()}];
+    save(); today_(); wall();
+  };
+
   streak();
 }
 function log(){ const k=today(); S.log[k]=S.log[k]||{}; return S.log[k]; }
