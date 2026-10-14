@@ -2,3 +2,6 @@
 data/
 *.pid
 *.log
+
+# Local snapshots. Data, not source.
+backups/
